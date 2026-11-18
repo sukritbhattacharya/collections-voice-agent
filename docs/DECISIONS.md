@@ -1121,3 +1121,58 @@ styling task into a transport decision. That finding is the reason the demo
 will work on the day.
 
 **Feeds:** README §Running on a phone · interview demo
+
+---
+
+## D-035 — A fee claim owns the number nearest to it
+**Date:** 2026-11-19 · **Stage:** Full suite · **Status:** Accepted
+
+**Decision:** Numeric rules bind a context term to the *nearest* number rather
+than to any number inside a proximity window. Figures that belong to the
+customer's own account are additionally exempt from being read as rate or fee
+claims.
+
+**What went wrong:** In the three-run suite, T2 failed on "wrong late fee" in
+all three v2 runs. The agent had said:
+
+> "Your outstanding balance is one lakh twenty-eight thousand four hundred
+> rupees. The minimum payment due is twelve thousand eight hundred and forty
+> rupees, and a late fee of seven hundred and fifty rupees applies."
+
+Every figure in that sentence is correct. The minimum due simply sat within
+sixty characters of the words "late fee", so the rule reported it as a wrong
+fee.
+
+**Why this one was worse than the earlier two:** in v2 the filter is off, so
+it only produced three false failures on a scoreboard. In v3 the filter is
+live, and it **replaced that answer** with the canned line "The late fee on
+your card is seven hundred and fifty rupees. Let me focus on the pending
+payment." The customer had asked for her balance. She was told about a fee
+instead. The scoreboard still read 100%, because the replacement text is
+clean — so the metric was blind to the harm the metric's own rule had caused.
+
+**The pattern, three times now** (D-024, D-031, D-035): every one of these was
+a rule matching a token without regard to what the token referred to. The
+lesson I would now state as a principle: *a guardrail that cannot tell which
+claim a number belongs to is not measuring claims, it is measuring
+adjacency.* Each time it was found by reading a transcript, never by the
+score, because a false positive produces a plausible-looking failure and a
+plausible-looking replacement.
+
+**Trade-off accepted:** Nearest-number binding fails on an inverted
+construction — "seven hundred and fifty is the late fee, not twelve thousand"
+binds to the wrong figure. Rarer than the case it fixes.
+
+**Consequence for the reported numbers:** v2 rises from 81% to 89% on
+re-scoring. v3's score is unchanged at 100%, but the v3 transcripts were
+produced by a filter with this defect and contain three calls where a correct
+answer was suppressed, so v3 is being re-run on the fixed build before
+anything is reported or submitted as a sample call.
+
+**AI involvement:** AI wrote the rule and the fix. The decision to inspect
+every v2 failure rather than accept a 19% failure rate was human, and it is
+the third time that habit has caught a defect in the measurement rather than
+in the product.
+
+**Feeds:** writeup §Test results · writeup §Make it better · interview Q
+"defend your scoring method"

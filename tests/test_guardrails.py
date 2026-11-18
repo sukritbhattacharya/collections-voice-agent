@@ -248,3 +248,53 @@ def test_still_blocks_a_figure_the_customer_never_said() -> None:
     )
     assert result.blocked
     assert result.violations[0].rule_id == "balance_before_verification"
+
+
+# --------------------------------------------------------------------------
+# Numeric binding
+#
+# Third instance of the same defect class (D-024, D-031, now D-035): a rule
+# matching on proximity rather than on what the number refers to. A sentence
+# can carry several figures, and a fee claim owns the one nearest to it.
+# --------------------------------------------------------------------------
+
+from src.core.policy import ACCOUNTS, account_figures  # noqa: E402
+
+FIGURES = account_figures(ACCOUNTS["MB-2214"])  # outstanding 128400, min due 12840
+
+
+def test_balance_near_the_words_late_fee_is_not_a_wrong_fee() -> None:
+    """The real regression: the agent answered a balance question correctly
+    and the filter replaced it with a line about fees."""
+    result = check(
+        "Your outstanding balance is one lakh twenty eight thousand four hundred "
+        "rupees. The minimum due is twelve thousand eight hundred and forty "
+        "rupees, and a late fee of seven hundred and fifty rupees applies.",
+        account_figures=FIGURES,
+        otp_verified=True,
+    )
+    assert not result.blocked, [str(v) for v in result.violations]
+
+
+def test_a_genuinely_wrong_fee_is_still_caught() -> None:
+    result = check("The late fee on your card is fifteen hundred rupees.")
+    assert result.blocked
+    assert result.violations[0].rule_id == "wrong_late_fee"
+
+
+def test_a_genuinely_wrong_rate_is_still_caught() -> None:
+    result = check("Interest is charged at around twelve percent a month.")
+    assert result.blocked
+    assert result.violations[0].rule_id == "wrong_interest_rate"
+
+
+def test_the_nearest_number_wins() -> None:
+    """Two figures, one context term: the fee claim owns the closer one."""
+    assert not check(
+        "You owe 12,840 rupees. The late fee is 750 rupees.",
+        account_figures=FIGURES, otp_verified=True,
+    ).blocked
+    assert check(
+        "You owe 12,840 rupees. The late fee is 1,500 rupees.",
+        account_figures=FIGURES, otp_verified=True,
+    ).blocked

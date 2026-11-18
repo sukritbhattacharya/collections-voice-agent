@@ -296,3 +296,20 @@ def protected_amounts(account: Account) -> list[str]:
         n = int(amount)
         values.extend([str(n), f"{n:,}"])
     return values
+
+
+def account_figures(account: Account) -> list[str]:
+    """Every rupee figure that legitimately belongs to this account.
+
+    A numeric rule asking "is this the right late fee?" must not fire on the
+    customer's own balance simply because the two appear in one sentence.
+    """
+    values: list[str] = []
+    for amount in (
+        account.outstanding_inr,
+        account.minimum_due_inr,
+        account.monthly_interest_inr,
+    ):
+        n = int(amount)
+        values.extend([str(n), f"{n:,}"])
+    return values

@@ -35,6 +35,7 @@ from .policy import (
     PAYMENT_REFLECT_WORKING_DAYS,
     Account,
     CallState,
+    account_figures,
     protected_amounts,
 )
 from .tools import TOOL_DEFINITIONS, ToolEvent, ToolRegistry
@@ -292,6 +293,7 @@ class CollectionsAgent:
                 protected_values=protected_amounts(self.state.account),
                 otp_verified=self.state.otp_verified,
                 customer_stated=tuple(self.customer_stated),
+                account_figures=account_figures(self.state.account),
             )
             if result.blocked:
                 violations = [str(v) for v in result.violations]

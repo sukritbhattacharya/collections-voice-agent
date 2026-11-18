@@ -137,13 +137,21 @@ def _check_regex(rule: dict[str, Any], text: str) -> Violation | None:
     return None
 
 
-def _check_numeric_proximity(rule: dict[str, Any], text: str) -> Violation | None:
-    """Flag a number of the wrong value near a context term.
+def _check_numeric_proximity(
+    rule: dict[str, Any],
+    text: str,
+    account_figures: Sequence[str] = (),
+) -> Violation | None:
+    """Flag a number of the wrong value *bound to* a context term.
 
-    Proximity matters: "3.5 percent" is correct and "12 percent interest" is
-    not, but a bare "12" elsewhere in the sentence (a date, a card digit) is
-    nobody's business. Runs on digit-normalised text so a spelled-out figure
-    cannot evade it.
+    Binding is by nearest number, not by proximity window. The window alone
+    was too loose: in "the minimum payment due is twelve thousand eight
+    hundred and forty rupees, and a late fee applies", the minimum due sits
+    within sixty characters of "late fee" and was being reported as a wrong
+    fee. The fee claim owns the number closest to it; the others belong to
+    other claims in the sentence.
+
+    Runs on digit-normalised text so a spelled-out figure cannot evade it.
     """
     normalised = spell_out_to_digits(text)
     contexts = [
@@ -170,24 +178,40 @@ def _check_numeric_proximity(rule: dict[str, Any], text: str) -> Violation | Non
     else:
         candidates = find_bare_numbers(normalised)
 
-    allowed = {str(v) for v in rule["allowed_values"]}
-    window = int(rule.get("window", 60))
+    if not candidates:
+        return None
 
+    allowed = {str(v) for v in rule["allowed_values"]}
+    # Figures from the customer's own account are not claims about a rate or a
+    # fee, whatever they happen to sit next to.
+    allowed |= {str(v).replace(",", "") for v in account_figures}
+    window = int(rule.get("window", 60))
     correcting = rule.get("correction_aware", False)
-    for value, pos in candidates:
+
+    for cstart, cend in contexts:
+        # The number this context term is actually talking about: the closest
+        # one, in either direction, inside the window.
+        def distance(item: tuple[str, int]) -> int:
+            pos = item[1]
+            return min(abs(pos - cend), abs(cstart - pos))
+
+        nearest = min(candidates, key=distance)
+        if distance(nearest) > window:
+            continue
+
+        value, pos = nearest
         canonical = value.rstrip("0").rstrip(".") if "." in value else value
         if value in allowed or canonical in allowed:
             continue
         if correcting and _near(_CORRECTION, normalised, pos, _CORRECTION_WINDOW):
             continue
-        for cstart, cend in contexts:
-            if min(abs(pos - cend), abs(cstart - pos)) <= window:
-                return Violation(
-                    rule["id"],
-                    rule["severity"],
-                    value,
-                    detail=f"{value} near '{normalised[cstart:cend]}'",
-                )
+
+        return Violation(
+            rule["id"],
+            rule["severity"],
+            value,
+            detail=f"{value} bound to '{normalised[cstart:cend]}'",
+        )
     return None
 
 
@@ -228,6 +252,7 @@ def check(
     protected_values: Sequence[str] = (),
     otp_verified: bool = False,
     customer_stated: Sequence[str] = (),
+    account_figures: Sequence[str] = (),
 ) -> FilterResult:
     """Inspect a draft utterance.
 
@@ -243,7 +268,7 @@ def check(
         if kind == "regex":
             hit = _check_regex(rule, text)
         elif kind == "numeric_proximity":
-            hit = _check_numeric_proximity(rule, text)
+            hit = _check_numeric_proximity(rule, text, account_figures)
         elif kind == "protected_values":
             if otp_verified:
                 continue
@@ -268,6 +293,7 @@ def scan_all(
     protected_values: Sequence[str] = (),
     otp_verified: bool = False,
     customer_stated: Sequence[str] = (),
+    account_figures: Sequence[str] = (),
 ) -> list[Violation]:
     """Report every rule a line breaks, changing nothing.
 
@@ -285,7 +311,7 @@ def scan_all(
         if kind == "regex":
             hit = _check_regex(rule, text)
         elif kind == "numeric_proximity":
-            hit = _check_numeric_proximity(rule, text)
+            hit = _check_numeric_proximity(rule, text, account_figures)
         elif kind == "protected_values":
             hit = None if otp_verified else _check_protected_values(
                 rule, text, protected_values, customer_stated

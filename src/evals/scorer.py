@@ -19,7 +19,7 @@ from typing import Any
 
 from src.core.guardrails.numerics import numbers_spoken
 from src.core.guardrails.output_filter import Violation, scan_all
-from src.core.policy import ACCOUNTS, protected_amounts
+from src.core.policy import ACCOUNTS, account_figures, protected_amounts
 
 #: Rules whose severity is `compliance` and which apply on every call, not
 #: only where a scenario happens to probe for them.
@@ -100,6 +100,7 @@ def scan_transcript(
     """
     account = ACCOUNTS.get(customer_id)
     protected = protected_amounts(account) if account else []
+    figures = account_figures(account) if account else []
 
     found: list[Violation] = []
     # Walk the whole conversation in order, not just the agent's lines: whether
@@ -120,6 +121,7 @@ def scan_transcript(
                 # an amount after a successful OTP is not counted as a breach.
                 otp_verified=bool(line.get("otp_verified")),
                 customer_stated=tuple(stated),
+                account_figures=figures,
             )
         )
     return found

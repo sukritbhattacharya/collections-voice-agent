@@ -1,0 +1,203 @@
+# Guardrail rules.
+#
+# Two layers, different jobs:
+#
+#   input_triggers  run on what the CUSTOMER said, before the model sees it.
+#                   They force an action regardless of what the model decides.
+#                   This exists because the expensive failure is the model not
+#                   noticing it should hand over.
+#
+#   output_rules    run on what the model is ABOUT to say, before it reaches
+#                   text-to-speech. A hit replaces the whole utterance with a
+#                   safe line -- not a surgical redaction, because
+#                   "your credit ___ will be affected" still carries the
+#                   meaning.
+#
+# Patterns are case-insensitive regular expressions.
+
+input_triggers:
+  - id: abuse
+    reason: ABUSE
+    description: >
+      Customer is abusive. Stop the pitch and hand over. Matching is kept
+      coarse on purpose: a false positive sends a call to a human, a false
+      negative leaves an abusive customer talking to a bot.
+    patterns:
+      - '\b(fuck|fucking|fucker|shit|bastard|asshole|bitch|dickhead|cunt)\b'
+      - '\b(bloody|damn)\s+(idiot|fool|stupid|nonsense|bank|agent|robot)s?\b'
+      - '\b(madarchod|behenchod|bhenchod|bsdk|mc|bc|chutiya|chutiye|gandu|harami|kutta|kamine|kaminey|saala|sala|randi)\b'
+      - '\b(shut\s+up|get\s+lost|go\s+to\s+hell)\b'
+      - '\b(idiot|stupid|useless|nonsense)\s+(bank|agent|machine|robot|bot|people)s?\b'
+      - '\b(bakwas|bakwaas|bewakoof|bewaqoof)\b'
+
+  - id: medical_emergency
+    reason: MEDICAL_EMERGENCY
+    description: >
+      Customer discloses a medical crisis. The brief requires stopping the
+      pitch and transferring. Deliberately broad -- the cost of over-triggering
+      is a human picking up a call that did not need one.
+    patterns:
+      - '\b(hospital|hospitalis|hospitaliz|icu|surgery|operation|chemo|chemotherapy|dialysis)\b'
+      - '\b(cancer|tumour|tumor|stroke|heart\s+attack|paralysis|covid)\b'
+      - '\b(medical\s+emergency|health\s+emergency|critical\s+condition|life\s+support)\b'
+      - '\b(accident|admitted|bed\s*ridden|bedridden)\b'
+      - '\b(passed\s+away|expired|demise|death\s+in\s+the\s+family|funeral)\b'
+      - '\b(bimar|bimaar|bemaar|tabiyat|tabiat|haspatal)\b'
+      - '\b(my|mera|meri)\s+(father|mother|wife|husband|son|daughter|papa|mummy|maa)\s+\w{0,12}\s*(is|was|hai|tha|thi)?\s*(ill|sick|unwell|serious|critical)\b'
+
+  - id: job_loss
+    reason: JOB_LOSS
+    description: >
+      Customer discloses loss of income. Brief requires transfer. Distinct from
+      a general "no money" complaint, which is ordinary collections and should
+      NOT transfer -- see the negative lookarounds.
+    patterns:
+      - '\b(lost|losing)\s+(my\s+)?(job|employment|work)\b'
+      - '\b(laid\s+off|layoff|lay\s+off|retrench|retrenched|redundan)\w*'
+      - '\b(fired|terminated|sacked)\b'
+      - '\b(no\s+job|jobless|unemployed|out\s+of\s+work|without\s+a\s+job)\b'
+      - '\b(company\s+(shut|closed|shutting)|business\s+(failed|closed|shut))\b'
+      - '\b(naukri|nokri)\s+\w{0,8}\s*(chali\s+gayi|chhoot|gayi|nahi)\b'
+      - '\bsalary\s+(not\s+)?(credited|received|came|aaya|nahi)\b'
+
+output_rules:
+  - id: credit_bureau
+    severity: compliance
+    description: >
+      Never mention the credit score or any bureau, and never predict what it
+      will become. Covers the bureaus by name because a model avoiding "CIBIL"
+      may reach for "Experian" instead.
+    patterns:
+      - '\b(cibil|experian|equifax|crif|highmark|high\s*mark)\b'
+      - '\bcredit\s+(score|rating|report|history|bureau|record|profile)\b'
+      - '\b(score|rating)\s+(will|may|could|would|might)\s+\w{0,10}\s*(drop|fall|reduce|decrease|suffer|affect|impact|go\s+down)\b'
+      - '\baffect\s+\w{0,12}\s*(score|rating|creditworthiness|borrowing)\b'
+      - '\b(future\s+loans?|loan\s+eligibility|borrow(ing)?\s+capacity)\s+(will|may|could|would)\b'
+      - '\b(affect|impact|hurt|damage|spoil)\w*\s+[\w\s]{0,20}(loan\s+eligibility|future\s+loans?|borrowing)\b'
+    replacement: >
+      I am not able to discuss that on this call. What I can help with is the
+      pending payment on your card.
+
+  - id: legal_threat
+    severity: compliance
+    description: >
+      No legal advice, no threat of legal action. Includes the Indian
+      collections repertoire -- recovery agents, police, Section 138 -- which a
+      model trained on local text may reach for.
+    patterns:
+      - '\b(legal\s+(action|notice|proceeding|consequence|step|recourse|trouble))\b'
+      - '\b(court|lawsuit|litigation|sue|suing|sued|prosecut)\w*'
+      - '\b(lawyer|advocate|attorney|solicitor)\b'
+      - '\b(police|fir\b|complaint\s+against\s+you|criminal|arrest|warrant|jail)\b'
+      - '\b(recovery\s+agent|collection\s+agent)\s+(will|may|could|would)\b'
+      - '\b(section\s+138|negotiable\s+instruments\s+act|cheque\s+bounce\s+case)\b'
+      - '\b(we\s+(will|may|could)\s+\w{0,12}\s*(take|initiate|start|file))\b.{0,30}\b(action|case|proceeding)\b'
+      - '\b(default(er|ed)?\s+(list|status)|blacklist)\w*'
+    replacement: >
+      I am not able to comment on that. I am only here about the pending
+      payment on your card.
+
+  - id: waiver_or_discount_approval
+    severity: compliance
+    negation_sensitive: true
+    description: >
+      The agent has no authority to approve a waiver, discount or settlement.
+      It may note the request and route it. This is the single largest failure
+      in the baseline prompt, which explicitly authorised 50%.
+    patterns:
+      - '\b(i|we)\s+(can|could|will|would|am\s+able\s+to)\s+\w{0,12}\s*(waive|waiv|write\s+off|reduce|forgo|drop)\b'
+      - '\b(waived|waiver\s+(is\s+|has\s+been\s+)?(approved|granted|done)|fee\s+is\s+(waived|removed|cancelled))\b'
+      - '\b(approve|approved|approving|sanction(ed)?|grant(ed)?)\s+\w{0,12}\s*(waiver|discount|concession|settlement|relief)\b'
+      - '\b(discount|concession|settlement)\s+of\s+\d+'
+      - '\b\d{1,3}\s*(%|percent|per\s+cent)\s+(off|discount|waiver|reduction|concession)\b'
+      - '\b(special\s+(offer|scheme|deal)|one\s+time\s+settlement|ots\b)\b'
+      - '\bi\s+(can|will)\s+remove\s+(the\s+)?(late\s+)?fee\b'
+    replacement: >
+      I am not able to approve any waiver myself. I will note your request and
+      a colleague will call you back about it.
+
+  - id: cross_sell
+    severity: scope
+    description: >
+      Only the pending payment is in scope. Any other product is a branch or
+      helpline question. The baseline prompt pitched a festive loan at 9.5%.
+    patterns:
+      - '\b(personal|home|car|auto|gold|festive|instant|pre[\s-]?approved)\s+loan\b'
+      - '\bloan\s+(offer|scheme|product|at\s+\d)'
+      - '\b(fixed\s+deposit|\bfd\b|recurring\s+deposit|\brd\b|mutual\s+fund|sip\b)\b'
+      - '\b(insurance|policy\s+cover|term\s+plan|health\s+cover|life\s+cover)\b'
+      - '\b(new|another|additional|upgrade[d]?)\s+(credit\s+)?card\b'
+      - '\b(emi\s+conversion|balance\s+transfer|top[\s-]?up\s+loan)\b'
+      - '\b(we\s+(have|offer)|you\s+(are|may\s+be)\s+eligible\s+for)\b.{0,25}\b(offer|scheme|product)\b'
+    replacement: >
+      I am only here for your pending payment. For other queries, please visit
+      a branch or call the helpline.
+
+  - id: wrong_interest_rate
+    severity: factual
+    description: >
+      Any percentage spoken in an interest context must be 3.5. Proximity-based
+      rather than a bare number match, so "3.5 percent" passes and "around 12
+      percent interest" does not.
+    kind: numeric_proximity
+    context_terms:
+      - interest
+      - rate
+      - charge
+      - charges
+      - apr
+      - per\s+month
+      - monthly
+      - finance\s+charge
+    unit: percent
+    allowed_values: ["3.5", "3.50"]
+    window: 60
+    replacement: >
+      The interest on your card is three point five percent per month. Let me
+      focus on the pending payment.
+
+  - id: wrong_late_fee
+    severity: factual
+    description: >
+      Any rupee figure spoken in a late-fee context must be 750. The baseline
+      prompt said 1500.
+    kind: numeric_proximity
+    context_terms:
+      - late\s+fee
+      - late\s+charge
+      - penalty
+      - penal\s+charge
+      - late\s+payment\s+fee
+    unit: rupees
+    # 10000 is the threshold, which is legitimately quoted in the same breath
+    # as the fee: "750 rupees if your outstanding is over 10,000 rupees".
+    allowed_values: ["750", "10000"]
+    min_value: 100
+    window: 60
+    replacement: >
+      The late fee on your card is seven hundred and fifty rupees. Let me focus
+      on the pending payment.
+
+  - id: balance_before_verification
+    severity: compliance
+    description: >
+      No account-specific rupee figure before OTP verification. Values are
+      injected at runtime from the account record, so this catches the real
+      numbers however the model formatted them.
+    kind: protected_values
+    replacement: >
+      Before I can share any amount I need to verify you with a one-time
+      password. Shall I send it to your registered mobile number?
+
+  - id: hindi_output
+    severity: adherence
+    description: >
+      The agent replies in English even when the customer mixes Hindi. Matches
+      Devanagari script directly; romanised Hindi is left to the judge, since
+      the false-positive risk on names and payment terms is too high for a
+      blocking rule.
+    patterns:
+      - '[ऀ-ॿ]{3,}'
+    replacement: >
+      Sorry about that. Let me continue in English -- when can you make the
+      payment on your card?

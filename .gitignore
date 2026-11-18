@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.py[cod]
+.env
+.env.local
+*.egg-info/
+.pytest_cache/
+.DS_Store
+results/*.jsonl
+results/*.csv
+results/transcripts/*
+!results/transcripts/.gitkeep
+src/evals/voice/audio/*.wav

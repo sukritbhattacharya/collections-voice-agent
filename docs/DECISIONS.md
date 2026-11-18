@@ -845,3 +845,113 @@ The STT reasoning survived the challenge; the TTS reasoning did not.
 **Feeds:** writeup §Stack · writeup §AI tools used (a case where my judgement
 overrode the assistant's) · interview Q "why this voice?" · interview Q "why
 not AWS or Azure?"
+
+---
+
+## D-027 — The agent knows the amounts; the filter stops it saying them
+**Date:** 2026-11-18 · **Stage:** First live runs · **Status:** Accepted
+**Supersedes in part:** D-018
+
+**Decision:** `get_account_context` always returns the outstanding balance and
+minimum due. Before verification it adds an explicit instruction not to speak
+them. The deterministic output filter remains the thing that actually enforces
+non-disclosure.
+
+**What went wrong first:** D-018 withheld the figures from the *model* as well
+as from the customer. The first live run showed the consequence immediately —
+the agent could not record a payment commitment without running an OTP step on
+every single call, because it genuinely did not know the minimum due. It spent
+four turns trying to verify a cooperative customer who only wanted to say
+"I'll pay Friday", and the customer eventually refused on the entirely
+reasonable grounds that an unsolicited caller was asking for a one-time
+password.
+
+**Why the new design is not weaker:** non-disclosure was never going to be
+enforced by the model not knowing. It is enforced by the output filter, which
+blocks those exact figures — digits, comma-grouped, or spelled out — on any
+line spoken before verification. Keeping the model ignorant added a failure
+mode without adding a control.
+
+**Trade-off accepted:** In v1 and v2 the filter is off, so those versions can
+now leak an amount the earlier design would have made impossible. That is not
+a regression to hide — it is the thesis of the whole build, and the v2 → v3
+column is where it should show up. If v2 leaks and v3 does not, that is the
+result.
+
+**What would change my mind:** If v3 ever leaks an amount, the filter is
+insufficient and ignorance becomes worth its cost again.
+
+**AI involvement:** Human-originated design (D-018), AI implemented it, and
+the first live run falsified it. Corrected by AI with the asymmetry argument
+intact — the strict disclosure rule survives, only its enforcement point moved.
+
+**Feeds:** writeup §Make it better · interview Q "show us a call where it
+broke"
+
+---
+
+## D-028 — A promise with a date but no figure is still a promise
+**Date:** 2026-11-18 · **Stage:** First live runs · **Status:** Accepted
+
+**Decision:** When a customer commits to paying "the minimum" or "the overdue
+amount" without naming a number, the amount is recorded as the minimum due
+from the account record, flagged as inferred.
+
+**Why:** The first T3 run ended with "I'll pay the overdue minimum on Friday"
+and produced no outcome at all, because the schema demanded an amount the
+customer never recited. That is a reporting failure dressed up as a data
+quality safeguard — the bank knows the minimum due, and a collections team
+would absolutely want that commitment in the queue.
+
+**Trade-off accepted:** An inferred amount is weaker evidence than a stated
+one. Flagged in the note so a reviewer can tell them apart.
+
+**AI involvement:** AI-originated after reading the failed transcript.
+
+**Feeds:** writeup §Make it better
+
+---
+
+## D-029 — "This Friday" is a date the customer gave
+**Date:** 2026-11-18 · **Stage:** First live runs · **Status:** Accepted
+
+**Decision:** Both the agent prompt and the extractor resolve relative dates
+("this Friday", "next Tuesday", "agle mangalwar") against today, and are told
+today's date and weekday.
+
+**What went wrong:** My extractor instructions said "do not infer a date the
+customer did not give." That was meant to stop it inventing dates. What it
+actually did was discard "this Friday" — which is how almost everyone speaks
+on a phone call — and return a promise to pay with no date, which then failed
+validation and degraded to a transfer.
+
+**Why it is worth recording:** the model did exactly what it was told. The
+defect was in the instruction, not the model, and it was invisible until a
+real transcript ran through it. A unit test would not have caught it because I
+would have written the fixture using an absolute date.
+
+**AI involvement:** AI wrote the faulty instruction and diagnosed it. Worth
+citing in the writeup as a case where the prompt, not the model, was the bug.
+
+**Feeds:** writeup §Make it better · writeup §AI tools used
+
+---
+
+## D-030 — The safety net must report when it fails
+**Date:** 2026-11-18 · **Stage:** First live runs · **Status:** Accepted
+
+**Decision:** The post-call extractor records why it failed instead of
+returning None silently.
+
+**Why:** The extractor was raising on every call — the structured-output
+parameter was passed in the wrong shape — and because the exception was
+swallowed, the symptom looked like the model forgetting to log an outcome. The
+fallback record said "No outcome captured during the call", which was true and
+completely misleading. A silent safety net is worse than none: it converts a
+loud failure into a plausible-looking wrong answer.
+
+**Trade-off accepted:** None. This was a straight defect.
+
+**AI involvement:** AI wrote the swallowed exception and the fix.
+
+**Feeds:** writeup §What you built · interview Q "how did you debug this?"

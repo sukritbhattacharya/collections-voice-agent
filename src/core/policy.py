@@ -258,22 +258,30 @@ def account_context(state: CallState) -> dict:
         "payment_reflect_working_days": PAYMENT_REFLECT_WORKING_DAYS,
     }
 
-    if not state.otp_verified:
-        base["amounts_locked"] = True
-        base["disclosure_rule"] = (
-            "Do not state any rupee amount specific to this account -- not the "
-            "outstanding balance and not the minimum due. If the customer asks "
-            "how much they owe, offer to verify them with a one-time password "
-            "first. You may still ask when they can clear the overdue amount."
-        )
-        return base
-
-    base["amounts_locked"] = False
+    # Amounts are always returned. Withholding them from the model as well as
+    # from the customer was the first design here, and it was wrong: the agent
+    # could not record a payment commitment without first running an OTP step
+    # on every call, which is a worse experience and a worse outcome rate.
+    #
+    # The control on disclosure is the output filter, which blocks these exact
+    # figures before they reach speech while unverified. Ignorance is not the
+    # safeguard; the guardrail is. See D-027.
     base["outstanding_inr"] = str(acc.outstanding_inr)
     base["minimum_due_inr"] = str(acc.minimum_due_inr)
     base["late_fee_applied_inr"] = str(acc.late_fee_inr)
     base["late_fee_applies"] = acc.late_fee_inr > 0
     base["monthly_interest_inr"] = str(acc.monthly_interest_inr)
+    base["amounts_locked"] = not state.otp_verified
+
+    if not state.otp_verified:
+        base["disclosure_rule"] = (
+            "THESE FIGURES ARE FOR YOUR USE ONLY. Do not say the outstanding "
+            "balance or the minimum due out loud, and do not hint at them, "
+            "until the customer is verified. You may use them to record a "
+            "payment commitment. If the customer asks how much they owe, "
+            "offer to verify them with a one-time password first. You may ask "
+            "when they can clear the overdue amount without naming it."
+        )
     return base
 
 

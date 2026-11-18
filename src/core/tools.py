@@ -157,8 +157,14 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "description": "When to call back, ISO 8601.",
                 },
                 "transfer_reason": {
-                    "type": ["string", "null"],
-                    "enum": [r.value for r in TransferReason] + [None],
+                    # A nullable enum has to be anyOf: strict schema validation
+                    # rejects an enum whose values do not all match a declared
+                    # union type.
+                    "anyOf": [
+                        {"type": "string",
+                         "enum": [r.value for r in TransferReason]},
+                        {"type": "null"},
+                    ],
                 },
                 "summary": {
                     "type": "string",

@@ -99,7 +99,7 @@ class CallOutcome(BaseModel):
     model: str | None = None
     latency: LatencyStats = Field(default_factory=LatencyStats)
     client: ClientInfo = Field(default_factory=ClientInfo)
-    transcript: list[dict[str, str]] = Field(default_factory=list)
+    transcript: list[dict[str, Any]] = Field(default_factory=list)
     captured_by: str = "agent"  # agent | post_call_extractor
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc)

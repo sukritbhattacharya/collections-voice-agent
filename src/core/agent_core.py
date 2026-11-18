@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import os
 import time
+from datetime import date
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
@@ -101,6 +102,8 @@ class AnthropicClient:
 
         self._client = Anthropic()
         self.model = model
+        self.input_tokens = 0
+        self.output_tokens = 0
         # Voice is latency-bound. Low effort keeps time-to-first-token down;
         # whether it costs compliance accuracy is an empirical question the
         # evaluation answers, not an assumption made here.
@@ -113,7 +116,7 @@ class AnthropicClient:
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]],
     ) -> Any:
-        return self._client.messages.create(
+        response = self._client.messages.create(
             model=self.model,
             max_tokens=MAX_TOKENS,
             system=system,
@@ -121,6 +124,11 @@ class AnthropicClient:
             tools=tools,
             output_config={"effort": self.effort},
         )
+        # Accumulated so a run can report what it actually cost, rather than
+        # what a pricing page suggests it should have.
+        self.input_tokens += response.usage.input_tokens
+        self.output_tokens += response.usage.output_tokens
+        return response
 
 
 class CollectionsAgent:
@@ -159,6 +167,7 @@ class CollectionsAgent:
         self.turn_latencies: list[int] = []
         self.started_at = time.monotonic()
         self.ended = False
+        self.extractor_error: str | None = None
 
         self._system = self._build_system_prompt()
         self._tools = [
@@ -169,8 +178,12 @@ class CollectionsAgent:
 
     def _build_system_prompt(self) -> str:
         text = (PROMPTS_DIR / self.config.prompt_file).read_text(encoding="utf-8")
+        today = date.today()
         return text.format(
-            issuer=ISSUER_NAME, reflect_days=PAYMENT_REFLECT_WORKING_DAYS
+            issuer=ISSUER_NAME,
+            reflect_days=PAYMENT_REFLECT_WORKING_DAYS,
+            today=today.isoformat(),
+            weekday=today.strftime("%A"),
         )
 
     # -- conversation -----------------------------------------------------
@@ -183,7 +196,13 @@ class CollectionsAgent:
 
     def respond(self, customer_text: str) -> AgentTurn:
         """Handle one customer utterance."""
-        self.transcript.append({"role": "customer", "text": customer_text})
+        if not customer_text or not customer_text.strip():
+            raise ValueError("customer_text is empty; treat silence as a hang-up")
+        self.transcript.append({
+            "role": "customer",
+            "text": customer_text,
+            "otp_verified": self.state.otp_verified,
+        })
         self.messages.append({"role": "user", "content": customer_text})
 
         forced: str | None = None
@@ -278,7 +297,11 @@ class CollectionsAgent:
                 self._rewrite_last_assistant_text(text)
 
         if text:
-            self.transcript.append({"role": "agent", "text": text})
+            self.transcript.append({
+                "role": "agent",
+                "text": text,
+                "otp_verified": self.state.otp_verified,
+            })
 
         ended = self.registry.outcome is not None
         self.ended = self.ended or ended
@@ -353,7 +376,11 @@ class CollectionsAgent:
                 customer_id=self.state.account.customer_id,
                 model=os.getenv("EXTRACTOR_MODEL", "claude-haiku-5-5"),
             )
-        except Exception:
+        except Exception as exc:  # noqa: BLE001
+            # Swallowing this silently once already cost a debugging cycle: the
+            # fallback looked like the model forgetting to log, when the
+            # extractor was in fact raising on every call.
+            self.extractor_error = f"{type(exc).__name__}: {exc}"
             return None
 
     def _fallback_outcome(self) -> CallOutcome:

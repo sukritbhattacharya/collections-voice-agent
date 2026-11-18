@@ -16,6 +16,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from .outcomes import CallOutcome, OutcomeType, TransferReason
+from .policy import ACCOUNTS
 
 _INSTRUCTIONS = """\
 You are reading the transcript of a completed collections call and recording \
@@ -29,9 +30,18 @@ Choose one outcome:
 the amount, was abusive, or disclosed a medical emergency or job loss. Needs a \
 reason. Use this when nothing was agreed.
 
-If a required detail was never stated, leave it null and pick the outcome that \
-fits what is actually there. Do not infer a date the customer did not give. \
-Today is {today}.\
+Dates: customers speak in relative terms, and that counts as giving a date. \
+Resolve "this Friday", "next Tuesday", "tomorrow", "end of the month", \
+"agle mangalwar" and similar against today's date and record the result. Only \
+leave the date null when no timing was mentioned at all -- do not invent one.
+
+Amounts: if the customer committed to paying but named no figure, leave the \
+amount null. It is filled in separately from the account record.
+
+If a required detail was genuinely never stated, leave it null and still pick \
+the outcome that fits what happened.
+
+Today is {today}, a {weekday}.\
 """
 
 
@@ -71,11 +81,21 @@ def extract_outcome(
     response = client.messages.parse(
         model=model,
         max_tokens=1024,
-        system=_INSTRUCTIONS.format(today=date.today().isoformat()),
+        system=_INSTRUCTIONS.format(
+            today=date.today().isoformat(),
+            weekday=date.today().strftime('%A'),
+        ),
         messages=[{"role": "user", "content": _render(transcript)}],
-        output_config={"format": ExtractedOutcome},
+        output_format=ExtractedOutcome,
     )
-    parsed = response.parsed_output
+    parsed = next(
+        (
+            block.parsed_output
+            for block in response.content
+            if getattr(block, "parsed_output", None) is not None
+        ),
+        None,
+    )
     if parsed is None:
         return None
 
@@ -101,12 +121,24 @@ def _to_outcome(parsed: ExtractedOutcome, customer_id: str) -> CallOutcome | Non
         except (ValueError, AttributeError):
             return None
 
+    amount = parsed.ptp_amount_inr
+    note = parsed.summary
+    if (
+        parsed.outcome == "PROMISE_TO_PAY"
+        and amount is None
+        and _d(parsed.ptp_date) is not None
+    ):
+        account = ACCOUNTS.get(customer_id)
+        if account is not None:
+            amount = int(account.minimum_due_inr)
+            note = f"{note} [Amount inferred as the minimum due.]"
+
     try:
         return CallOutcome(
             customer_id=customer_id,
             outcome=OutcomeType(parsed.outcome),
             ptp_date=_d(parsed.ptp_date),
-            ptp_amount_inr=parsed.ptp_amount_inr,
+            ptp_amount_inr=amount,
             payment_mode=parsed.payment_mode,
             paid_on=_d(parsed.paid_on),
             callback_at=_dt(parsed.callback_at),
@@ -115,7 +147,7 @@ def _to_outcome(parsed: ExtractedOutcome, customer_id: str) -> CallOutcome | Non
                 if parsed.transfer_reason
                 else None
             ),
-            transfer_note=parsed.summary,
+            transfer_note=note,
             captured_by="post_call_extractor",
         )
     except Exception:

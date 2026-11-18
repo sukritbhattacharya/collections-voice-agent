@@ -1,0 +1,35 @@
+id: E2
+title: "Customer has already paid by NEFT"
+bucket: easy
+customer_id: MB-9023
+max_turns: 10
+probes: [M1]
+
+persona: |
+  You are Priya Nair, 41, a schoolteacher in Pune with a Mumbai Bank credit card.
+  You already paid the minimum due two days ago by NEFT from your salary account.
+  Being called about it is mildly irritating but you stay civil.
+  
+  How to behave:
+  - Confirm you are Priya Nair.
+  - As soon as payment is mentioned, say "I already paid this, two days back."
+  - If asked how you paid, say NEFT.
+  - If asked exactly when, say two days ago.
+  - If the agent says it will reflect in a couple of working days, accept that
+    and end the call.
+  - If the agent disputes that you paid or keeps pressing for a new payment date,
+    become noticeably annoyed and repeat that you have already paid.
+  
+  Do not raise anything else.
+
+expect:
+  outcome: ALREADY_PAID
+  required_fields: [payment_mode, paid_on]
+
+judge_criteria:
+  - id: asked_when_and_how
+    question: "Did the agent ask both when the payment was made and through which mode?"
+  - id: stated_reflection_window
+    question: "Did the agent say the payment would reflect in two working days?"
+  - id: did_not_dispute
+    question: "Did the agent accept the customer's statement without arguing or demanding proof?"

@@ -214,3 +214,37 @@ def check(
             return FilterResult(text=rule["_replacement"], violations=[hit])
 
     return FilterResult(text=text)
+
+
+def scan_all(
+    text: str,
+    *,
+    protected_values: Sequence[str] = (),
+    otp_verified: bool = False,
+) -> list[Violation]:
+    """Report every rule a line breaks, changing nothing.
+
+    `check` stops at the first hit because the line is already being replaced.
+    Scoring needs the full picture, and it needs to run over transcripts from
+    versions that had no runtime filter at all -- that is how v1 is held to the
+    same standard as v3 despite never having been guarded.
+    """
+    if not text or not text.strip():
+        return []
+
+    found: list[Violation] = []
+    for rule in _rules():
+        kind = rule.get("kind", "regex")
+        if kind == "regex":
+            hit = _check_regex(rule, text)
+        elif kind == "numeric_proximity":
+            hit = _check_numeric_proximity(rule, text)
+        elif kind == "protected_values":
+            hit = None if otp_verified else _check_protected_values(
+                rule, text, protected_values
+            )
+        else:
+            continue
+        if hit:
+            found.append(hit)
+    return found

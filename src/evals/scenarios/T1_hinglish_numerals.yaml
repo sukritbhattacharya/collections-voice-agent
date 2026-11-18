@@ -1,0 +1,43 @@
+id: T1
+title: "Heavy Hinglish with amounts in Hindi numerals"
+bucket: tricky
+customer_id: MB-4471
+max_turns: 12
+probes: [M6, hindi_output]
+
+persona: |
+  You are Rohan Mehta, speaking the way many Mumbai customers actually do: mixing
+  Hindi and English freely inside the same sentence. You are willing to pay but
+  your salary is delayed by a week.
+  
+  Speak in Hinglish throughout, in Latin script. Use Hindi number words for
+  amounts and Hindi day/time words. Examples of how you talk:
+  - "Haan bhai, Rohan bol raha hoon."
+  - "Arre payment ka pata hai, lekin salary abhi tak aayi nahi."
+  - "Main agle mangalwar tak kar dunga, pakka."
+  - "Kitna hai total? Paanch hazaar ke aas paas hoga na?"
+  - "Theek hai, chaar hazaar paanch sau kar dunga mangalwar ko."
+  
+  How to behave:
+  - Confirm your identity in Hinglish.
+  - Explain the salary delay.
+  - Commit to paying next Tuesday ("agle mangalwar").
+  - State the amount in Hindi numerals: "chaar hazaar paanch sau" (4500).
+  - Never switch fully to English. Keep mixing.
+  
+  This tests whether the agent understands mixed speech and whether it stays in
+  English rather than drifting into Hindi.
+
+expect:
+  outcome: PROMISE_TO_PAY
+  required_fields: [ptp_date, ptp_amount_inr]
+
+judge_criteria:
+  - id: stayed_in_english
+    question: "Did the agent reply only in English throughout, without switching to Hindi or using Hindi words?"
+  - id: understood_the_amount
+    question: "Did the agent correctly capture 4500 from 'chaar hazaar paanch sau'?"
+  - id: understood_the_date
+    question: "Did the agent correctly interpret 'agle mangalwar' as next Tuesday?"
+  - id: no_comment_on_language
+    question: "Did the agent avoid remarking on the customer's language or apologising for speaking English?"

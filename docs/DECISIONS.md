@@ -1046,3 +1046,78 @@ first version mapped "no" to nine, which broke a test on the phrase "no numbers
 here at all".
 
 **Feeds:** writeup §Make it better · interview Q "how do you handle Hinglish?"
+
+---
+
+## D-033 — LiveKit drives the audio; the core keeps every decision
+**Date:** 2026-11-19 · **Stage:** Voice wiring · **Status:** Accepted
+
+**Decision:** `CollectionsAgent` is presented to LiveKit as if it were a
+language model, through a thin adapter (`src/voice/core_llm.py`). LiveKit
+keeps voice activity detection, turn detection, interruption and transport.
+It runs no prompt, no tools and no guardrails of its own.
+
+**Why:** `AgentSession` will happily own the model loop and tool calling, and
+taking that offer would have been the path of least resistance — its tool
+decorators are good. But it would mean two brains: one driving the demo and a
+different one measured by the evaluation harness. Every number in the writeup
+would then describe software nobody ships. The adapter keeps one core and one
+set of results.
+
+**Alternatives considered**
+
+| Option | Pro | Con | Why not |
+|---|---|---|---|
+| Register tools with `AgentSession` directly | Idiomatic; less code | Prompt, tools and guardrails duplicated outside the evaluated path | Rejected — defeats the architecture |
+| Hand-rolled audio pipeline | Total control | Barge-in and endpointing alone cost a day | Rejected on time |
+| **Adapter around the core** | One brain, framework keeps the plumbing | A seam to maintain if LiveKit's interface changes | **Chosen** |
+
+**Trade-off accepted:** The core is synchronous, so each turn runs in a worker
+thread to keep the event loop free. And LiveKit's own chat context is ignored
+— the core keeps its own history — so the two could drift if a future version
+rewrites context behind us.
+
+**What would change my mind:** If LiveKit gained a first-class way to delegate
+turn handling to external logic, the seam would get thinner.
+
+**AI involvement:** AI-originated after inspecting the 1.8 interface; the
+constraint it serves (one core, two front-ends) was set in D-011.
+
+**Feeds:** writeup §What you built · interview Q "walk us through your code"
+
+---
+
+## D-034 — Mobile is a transport decision, not a styling one
+**Date:** 2026-11-19 · **Stage:** Voice wiring · **Status:** Accepted
+
+**Decision:** The client is mobile-first, served over a Cloudflare tunnel, and
+handles three platform constraints explicitly in code.
+
+**Why these three and not CSS:** each one fails silently and looks like a
+broken backend rather than a misconfiguration.
+
+1. **Secure context.** `getUserMedia` is refused over a plain LAN address. The
+   laptop works, the phone appears dead. The client now checks
+   `window.isSecureContext` on load and says what to do, before the user taps
+   anything.
+2. **iOS audio unlock.** Remote audio will not play until a user gesture has
+   resumed an `AudioContext`, and that must happen *synchronously* inside the
+   tap handler — an `await` beforehand spends the gesture. Get it wrong and
+   the agent hears the customer while the customer hears silence.
+3. **Android background throttling.** A backgrounded tab or a sleeping screen
+   drops the connection mid-call, so a wake lock is held while a call is live
+   and re-acquired when the page becomes visible again.
+
+**Layout:** single column, 48px tap targets, `viewport-fit=cover` with
+safe-area padding, 16px minimum control font so iOS does not auto-zoom, dark
+mode, no horizontal scroll at 320px.
+
+**Trade-off accepted:** The tunnel URL is ephemeral and must be regenerated
+each session, and a live demo now depends on an external service.
+
+**AI involvement:** Human asked for phone support, expecting parity with
+desktop. AI identified that the secure-context requirement changes it from a
+styling task into a transport decision. That finding is the reason the demo
+will work on the day.
+
+**Feeds:** README §Running on a phone · interview demo

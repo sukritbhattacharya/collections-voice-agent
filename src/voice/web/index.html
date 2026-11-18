@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- viewport-fit=cover lets the layout reach under the notch and home
+     indicator; the CSS then pads back with env(safe-area-inset-*). -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=5">
+<meta name="color-scheme" content="light dark">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Collections Call</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<main class="shell">
+
+  <header class="bar">
+    <span class="brand">Collections Agent</span>
+    <span id="status" class="status status--idle">Ready</span>
+  </header>
+
+  <section id="intro" class="panel">
+    <h1>Incoming call simulation</h1>
+    <p>
+      You are the cardholder. Tap <strong>Start call</strong>, allow microphone
+      access, and speak as you would on a real call.
+    </p>
+    <p class="hint" id="context-hint">The agent speaks first.</p>
+  </section>
+
+  <section id="transcript" class="transcript" aria-live="polite" aria-label="Call transcript"></section>
+
+  <section id="outcome-wrap" class="panel panel--outcome" hidden>
+    <h2>Outcome sent to CRM</h2>
+    <pre id="outcome"></pre>
+  </section>
+
+  <div class="controls">
+    <button id="call" class="btn btn--start" type="button">Start call</button>
+    <p id="error" class="error" role="alert" hidden></p>
+  </div>
+
+</main>
+
+<!-- Attached to the DOM and playsinline: iOS will not play remote audio from
+     a detached element, and without playsinline it may try to go fullscreen. -->
+<audio id="remote" autoplay playsinline></audio>
+
+<script src="https://cdn.jsdelivr.net/npm/livekit-client@2.23.0/dist/livekit-client.umd.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

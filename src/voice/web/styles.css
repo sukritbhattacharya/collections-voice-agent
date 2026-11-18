@@ -1,0 +1,189 @@
+/* Mobile-first. Every rule here is the phone layout; the only media query
+   widens it for a desktop screen. Retrofitting responsiveness is what costs
+   time, so the narrow case is the default case. */
+
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-2: #eef1f5;
+  --ink: #15181d;
+  --ink-dim: #5b6472;
+  --line: #dde2e9;
+  --accent: #1b6ef3;
+  --accent-ink: #ffffff;
+  --danger: #c3362b;
+  --agent: #e8f0fe;
+  --radius: 14px;
+  /* iOS minimum comfortable touch target. */
+  --tap: 48px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e1116;
+    --surface: #171b22;
+    --surface-2: #1e242d;
+    --ink: #e8ecf1;
+    --ink-dim: #9aa5b4;
+    --line: #2a313b;
+    --accent: #4d8dff;
+    --agent: #1b2738;
+    --danger: #ff6b5e;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  /* No horizontal scroll at 320px, whatever the content does. */
+  overflow-x: hidden;
+}
+
+.shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  max-width: 720px;
+  margin: 0 auto;
+  /* Respect the notch, the home indicator, and a 16px side gutter. */
+  padding:
+    calc(env(safe-area-inset-top) + 12px)
+    calc(env(safe-area-inset-right) + 16px)
+    calc(env(safe-area-inset-bottom) + 12px)
+    calc(env(safe-area-inset-left) + 16px);
+  gap: 14px;
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.brand { font-weight: 650; letter-spacing: -0.01em; }
+
+.status {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--ink-dim);
+  white-space: nowrap;
+}
+.status--live { background: #d8f3dd; color: #16633a; }
+.status--connecting { background: #fdf0d2; color: #7a5a12; }
+.status--ended { background: var(--surface-2); color: var(--ink-dim); }
+@media (prefers-color-scheme: dark) {
+  .status--live { background: #16331f; color: #84e0a4; }
+  .status--connecting { background: #3a2f12; color: #f0cf7a; }
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+.panel h1 { font-size: 19px; margin: 0 0 8px; letter-spacing: -0.01em; }
+.panel h2 { font-size: 15px; margin: 0 0 10px; }
+.panel p { margin: 0 0 8px; }
+.hint { color: var(--ink-dim); font-size: 14px; margin: 0; }
+
+.transcript {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 140px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.line {
+  max-width: 86%;
+  padding: 10px 13px;
+  border-radius: var(--radius);
+  /* Long account numbers and URLs must not force the page sideways. */
+  overflow-wrap: anywhere;
+}
+.line--agent { background: var(--agent); align-self: flex-start; }
+.line--you {
+  background: var(--accent);
+  color: var(--accent-ink);
+  align-self: flex-end;
+}
+.line--note {
+  align-self: center;
+  background: transparent;
+  color: var(--ink-dim);
+  font-size: 13px;
+  text-align: center;
+  padding: 4px 0;
+}
+.who {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  opacity: 0.6;
+  margin-bottom: 2px;
+}
+
+.panel--outcome pre {
+  margin: 0;
+  font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--ink-dim);
+}
+
+.controls { position: sticky; bottom: 0; padding-top: 4px; }
+
+.btn {
+  display: block;
+  width: 100%;
+  min-height: var(--tap);
+  padding: 14px 20px;
+  /* 16px minimum stops iOS zooming the page when the control is focused. */
+  font-size: 17px;
+  font-weight: 650;
+  font-family: inherit;
+  color: var(--accent-ink);
+  background: var(--accent);
+  border: 0;
+  border-radius: var(--radius);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.btn:active { opacity: 0.85; }
+.btn:disabled { opacity: 0.5; cursor: default; }
+.btn--end { background: var(--danger); }
+
+.error {
+  margin: 10px 0 0;
+  padding: 11px 13px;
+  border-radius: 10px;
+  background: #fdeceb;
+  color: var(--danger);
+  font-size: 14px;
+}
+@media (prefers-color-scheme: dark) { .error { background: #3a1d1b; } }
+
+@media (min-width: 700px) {
+  .shell { padding-top: 28px; gap: 18px; }
+  .panel h1 { font-size: 22px; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .line { animation: rise 160ms ease-out; }
+  @keyframes rise { from { opacity: 0; transform: translateY(4px); } }
+}

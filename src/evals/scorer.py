@@ -17,6 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from src.core.guardrails.numerics import numbers_spoken
 from src.core.guardrails.output_filter import Violation, scan_all
 from src.core.policy import ACCOUNTS, protected_amounts
 
@@ -101,7 +102,16 @@ def scan_transcript(
     protected = protected_amounts(account) if account else []
 
     found: list[Violation] = []
-    for line in _agent_lines(transcript):
+    # Walk the whole conversation in order, not just the agent's lines: whether
+    # a figure counts as a disclosure depends on whether the customer had
+    # already said it, which only the ordering can tell us.
+    stated: set[str] = set()
+    for line in transcript:
+        if line.get("role") == "customer":
+            stated |= numbers_spoken(line.get("text", ""))
+            continue
+        if line.get("role") != "agent":
+            continue
         found.extend(
             scan_all(
                 line.get("text", ""),
@@ -109,6 +119,7 @@ def scan_transcript(
                 # Verification state as it stood when this line was spoken, so
                 # an amount after a successful OTP is not counted as a breach.
                 otp_verified=bool(line.get("otp_verified")),
+                customer_stated=tuple(stated),
             )
         )
     return found

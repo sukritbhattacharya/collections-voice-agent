@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from .guardrails import input_tripwire
+from .guardrails.numerics import numbers_spoken
 from .guardrails.output_filter import check as filter_output
 from .outcomes import CallOutcome, OutcomeType, TransferReason, deliver
 from .policy import (
@@ -168,6 +169,9 @@ class CollectionsAgent:
         self.started_at = time.monotonic()
         self.ended = False
         self.extractor_error: str | None = None
+        #: Figures the customer has volunteered. Echoing one back is correct
+        #: call handling, not a disclosure.
+        self.customer_stated: set[str] = set()
 
         self._system = self._build_system_prompt()
         self._tools = [
@@ -204,6 +208,7 @@ class CollectionsAgent:
             "otp_verified": self.state.otp_verified,
         })
         self.messages.append({"role": "user", "content": customer_text})
+        self.customer_stated |= numbers_spoken(customer_text)
 
         forced: str | None = None
         if self.config.tripwire:
@@ -286,6 +291,7 @@ class CollectionsAgent:
                 text,
                 protected_values=protected_amounts(self.state.account),
                 otp_verified=self.state.otp_verified,
+                customer_stated=tuple(self.customer_stated),
             )
             if result.blocked:
                 violations = [str(v) for v in result.violations]

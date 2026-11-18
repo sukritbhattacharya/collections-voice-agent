@@ -955,3 +955,94 @@ loud failure into a plausible-looking wrong answer.
 **AI involvement:** AI wrote the swallowed exception and the fix.
 
 **Feeds:** writeup §What you built · interview Q "how did you debug this?"
+
+---
+
+## D-031 — The scorer was failing the agent for doing the right thing
+**Date:** 2026-11-19 · **Stage:** First full suite · **Status:** Accepted
+
+**What happened:** The first full three-way run put v2 at 75%. Reading the
+three failures showed that none of them were failures. In each case the agent
+had done exactly what the brief requires and the rule had misread it.
+
+| Scenario | Flagged as | What was actually said |
+|---|---|---|
+| T1 | balance before verification | "I've noted your promise to pay four thousand five hundred rupees" — echoing a figure **the customer had just said** |
+| X1 | cross-selling | "For loan and fixed deposit rates, please call the helpline" — the **required deflection**, verbatim |
+| X3 | wrong interest rate | "...is three point five percent, **not** twelve percent" — **correcting** the customer |
+
+**Decision:** Three fixes, all of the same kind — the rules now consider what a
+token is doing in the sentence, not just that it is present.
+
+1. **Correction-aware numeric rules.** A wrong figure immediately preceded by
+   a negation is being denied, not asserted. Correcting a customer requires
+   repeating their wrong number.
+2. **Deflection-aware scope rule.** Naming a product in order to refuse it is
+   the behaviour the brief demands. The rule now checks for deflection
+   language nearby before firing.
+3. **Customer-stated amounts are exempt.** A figure the customer volunteered
+   is not something the bank disclosed. The scorer replays the conversation in
+   order so it knows who said what first, and the live filter tracks the same
+   thing during the call.
+
+**Why this matters more than the fix:** this is the second time the same class
+of defect has appeared (see D-024), and this time it reached a reported
+result. Two points worth keeping:
+
+- **A false positive is not harmless caution.** In v2, where the filter is off,
+  it produced three failures the agent did not commit. In v3, where the filter
+  is on, the same rules would have silently replaced correct, helpful speech
+  with a blander canned line — the customer would have been told less, and the
+  violation counter would have recorded a breach that never happened.
+- **The measurement instrument needs the same scrutiny as the thing measured.**
+  The v2 number was wrong in the direction that flattered my own thesis:
+  guardrails looked more valuable than they were because the unguarded version
+  was being penalised for correct behaviour. Had I not read the transcripts, I
+  would have reported it.
+
+**Corrected numbers after the fix:** v1 8%, v2 100%, v3 100% — at one run per
+scenario. v2 and v3 being indistinguishable at n=1 is itself a result, and the
+three-run suite is what will say whether it holds.
+
+**Trade-off accepted:** Each exemption is a hole. A correction marker within 25
+characters, a deflection marker within 120, an amount the customer mentioned
+for any reason — all can in principle be exploited by phrasing. Narrow enough
+to be worth it, and the judge is the second line.
+
+**AI involvement:** AI wrote the rules, AI wrote the fixes. The decision to
+read every failing transcript before believing the number was human, and it is
+the only reason the defect was found rather than published.
+
+**Feeds:** writeup §Test results · writeup §Make it better · interview Q
+"defend your scoring method"
+
+---
+
+## D-032 — Hindi numerals, parsed only where they belong
+**Date:** 2026-11-19 · **Stage:** First full suite · **Status:** Accepted
+
+**Decision:** The number parser understands Hindi number words in Latin script
+("chaar hazaar paanch sau" = 4500). It applies them to customer speech only,
+never to the agent's own output.
+
+**Why:** The T1 exemption above failed on the Hinglish scenario, because the
+customer stated the amount in Hindi and the parser only read English. The
+brief says customers reply in a mix of Hindi and English, and amounts are
+precisely the part that matters.
+
+**Why the scoping:** "do" (two) and "char" (four) are ordinary English words.
+Reading Hindi numerals out of English would turn "Do you want to pay" into
+"2 you want to pay" and hand a numeric rule a figure nobody said. The split is
+clean because of a rule the agent already follows — it replies in English — so
+Hindi applies to the customer side and English to the agent side.
+
+**Trade-off accepted:** Transliteration is genuinely ambiguous. "saat" (seven)
+and "saath" (sixty) differ by one letter, and speech recognition will confuse
+them. Recorded as a known limitation rather than papered over, and it is one of
+the things the B1 accuracy harness is for.
+
+**AI involvement:** AI-originated, including catching its own collision — the
+first version mapped "no" to nine, which broke a test on the phrase "no numbers
+here at all".
+
+**Feeds:** writeup §Make it better · interview Q "how do you handle Hinglish?"

@@ -118,6 +118,10 @@ output_rules:
 
   - id: cross_sell
     severity: scope
+    # Naming a product to refuse it is the required behaviour, not a breach:
+    # "for fixed deposit rates, please call the helpline" is verbatim what the
+    # brief asks for.
+    deflection_aware: true
     description: >
       Only the pending payment is in scope. Any other product is a branch or
       helpline question. The baseline prompt pitched a festive loan at 9.5%.
@@ -150,6 +154,9 @@ output_rules:
       - monthly
       - finance\s+charge
     unit: percent
+    # Correcting a customer means repeating their wrong figure to deny it:
+    # "three point five percent, not twelve percent" must pass.
+    correction_aware: true
     allowed_values: ["3.5", "3.50"]
     window: 60
     replacement: >
@@ -169,6 +176,7 @@ output_rules:
       - penal\s+charge
       - late\s+payment\s+fee
     unit: rupees
+    correction_aware: true
     # 10000 is the threshold, which is legitimately quoted in the same breath
     # as the fee: "750 rupees if your outstanding is over 10,000 rupees".
     allowed_values: ["750", "10000"]

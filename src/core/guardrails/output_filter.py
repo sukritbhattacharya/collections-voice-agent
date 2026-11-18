@@ -91,6 +91,33 @@ _NEGATORS = re.compile(
 )
 _NEGATION_WINDOW = 30
 
+#: Phrases that turn a product mention into a refusal. Saying "for fixed
+#: deposit rates, call the helpline" is the behaviour the brief requires; a
+#: rule that blocks it is enforcing the opposite of the policy.
+_DEFLECTION = re.compile(
+    r"(only here for|only able to help with|can(?:'|no)t (?:help|assist|advise|comment|discuss)"
+    r"|not able to (?:help|assist|advise|comment|discuss)|please (?:visit|call)"
+    r"|helpline|branch|other quer|different team|outside what i)",
+    re.IGNORECASE,
+)
+_DEFLECTION_WINDOW = 120
+
+#: Markers that a wrong figure is being quoted in order to deny it.
+#: Matched against digit-normalised text, where the tokeniser separates
+#: contractions -- "isn't" arrives as "isn ' t" -- so the apostrophe forms
+#: have to tolerate inserted whitespace.
+_CORRECTION = re.compile(
+    r"(?:\bnot\b|\bnever\b|n\s*'\s*t\b|\brather than\b|\binstead of\b"
+    r"|\bno\b|\bactually\b|\bin fact\b)",
+    re.IGNORECASE,
+)
+_CORRECTION_WINDOW = 25
+
+
+def _near(pattern: re.Pattern[str], text: str, pos: int, window: int) -> bool:
+    """Whether `pattern` occurs within `window` characters either side of pos."""
+    return bool(pattern.search(text[max(0, pos - window): pos + window]))
+
 
 def _negated(text: str, start: int) -> bool:
     """Whether a negation appears shortly before `start`."""
@@ -99,9 +126,12 @@ def _negated(text: str, start: int) -> bool:
 
 def _check_regex(rule: dict[str, Any], text: str) -> Violation | None:
     sensitive = rule.get("negation_sensitive", False)
+    deflecting = rule.get("deflection_aware", False)
     for pat in rule["_compiled"]:
         for m in pat.finditer(text):
             if sensitive and _negated(text, m.start()):
+                continue
+            if deflecting and _near(_DEFLECTION, text, m.start(), _DEFLECTION_WINDOW):
                 continue
             return Violation(rule["id"], rule["severity"], m.group(0))
     return None
@@ -143,9 +173,12 @@ def _check_numeric_proximity(rule: dict[str, Any], text: str) -> Violation | Non
     allowed = {str(v) for v in rule["allowed_values"]}
     window = int(rule.get("window", 60))
 
+    correcting = rule.get("correction_aware", False)
     for value, pos in candidates:
         canonical = value.rstrip("0").rstrip(".") if "." in value else value
         if value in allowed or canonical in allowed:
+            continue
+        if correcting and _near(_CORRECTION, normalised, pos, _CORRECTION_WINDOW):
             continue
         for cstart, cend in contexts:
             if min(abs(pos - cend), abs(cstart - pos)) <= window:
@@ -159,7 +192,10 @@ def _check_numeric_proximity(rule: dict[str, Any], text: str) -> Violation | Non
 
 
 def _check_protected_values(
-    rule: dict[str, Any], text: str, protected: Sequence[str]
+    rule: dict[str, Any],
+    text: str,
+    protected: Sequence[str],
+    customer_stated: Sequence[str] = (),
 ) -> Violation | None:
     """Catch an account figure spoken before verification.
 
@@ -169,8 +205,15 @@ def _check_protected_values(
     if not protected:
         return None
     normalised = spell_out_to_digits(text)
+    # A number the customer volunteered is not something the bank disclosed.
+    # Confirming "your promise to pay four thousand five hundred" back to
+    # someone who just said it is correct call handling, and flagging it as a
+    # data breach would be the rule misreading who spoke.
+    said_by_customer = {v.replace(",", "") for v in customer_stated}
     for value in protected:
         bare = value.replace(",", "")
+        if bare in said_by_customer:
+            continue
         for haystack in (text, normalised):
             if re.search(rf"\b{re.escape(value)}\b", haystack) or re.search(
                 rf"\b{re.escape(bare)}\b", haystack
@@ -184,6 +227,7 @@ def check(
     *,
     protected_values: Sequence[str] = (),
     otp_verified: bool = False,
+    customer_stated: Sequence[str] = (),
 ) -> FilterResult:
     """Inspect a draft utterance.
 
@@ -203,7 +247,9 @@ def check(
         elif kind == "protected_values":
             if otp_verified:
                 continue
-            hit = _check_protected_values(rule, text, protected_values)
+            hit = _check_protected_values(
+                rule, text, protected_values, customer_stated
+            )
         else:  # pragma: no cover - guards against a typo in the rules file
             raise ValueError(f"unknown rule kind {kind!r} on {rule['id']}")
 
@@ -221,6 +267,7 @@ def scan_all(
     *,
     protected_values: Sequence[str] = (),
     otp_verified: bool = False,
+    customer_stated: Sequence[str] = (),
 ) -> list[Violation]:
     """Report every rule a line breaks, changing nothing.
 
@@ -241,7 +288,7 @@ def scan_all(
             hit = _check_numeric_proximity(rule, text)
         elif kind == "protected_values":
             hit = None if otp_verified else _check_protected_values(
-                rule, text, protected_values
+                rule, text, protected_values, customer_stated
             )
         else:
             continue

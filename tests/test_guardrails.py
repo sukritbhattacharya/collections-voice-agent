@@ -192,3 +192,59 @@ def test_abuse_takes_priority_over_other_triggers() -> None:
     """An abusive customer who also mentions job loss goes to the abuse queue."""
     hit = input_tripwire.scan("I lost my job you bloody idiots!")
     assert hit is not None and hit.reason == "ABUSE"
+
+
+# --------------------------------------------------------------------------
+# Function-aware matching
+#
+# Three rules originally fired on correct output because they matched a token
+# without regard to what it was doing in the sentence. Each one blocked
+# behaviour the brief explicitly requires, and each one corrupted a reported
+# number. See D-031.
+# --------------------------------------------------------------------------
+
+def test_correcting_a_wrong_figure_is_not_a_wrong_figure() -> None:
+    """Denying a number means saying it. "3.5 percent, not 12 percent" passes."""
+    for text in (
+        "The monthly interest is three point five percent, not twelve percent.",
+        "It isn't 1500 rupees; the late fee is 750 rupees.",
+        "The rate is 3.5 percent per month rather than 12 percent.",
+    ):
+        assert not check(text).blocked, f"false positive on a correction: {text}"
+
+
+def test_refusing_a_product_is_not_cross_selling() -> None:
+    """Naming a product to decline it is the required deflection."""
+    for text in (
+        "For loan and fixed deposit rates, please call the helpline.",
+        "I can't advise on a personal loan. Please visit a branch.",
+        "I'm only here for your pending payment, not insurance queries.",
+    ):
+        assert not check(text).blocked, f"false positive on a deflection: {text}"
+
+
+def test_still_blocks_an_actual_pitch() -> None:
+    assert check("You are eligible for our festive loan at 9.5 percent.").blocked
+    assert check("The interest rate is around twelve percent.").blocked
+
+
+def test_echoing_the_customers_own_figure_is_not_disclosure() -> None:
+    """The customer said 4500 first; confirming it back is call handling."""
+    result = check(
+        "I've noted your promise to pay four thousand five hundred rupees on Tuesday.",
+        protected_values=PROTECTED,
+        customer_stated=["4500"],
+        otp_verified=False,
+    )
+    assert not result.blocked
+
+
+def test_still_blocks_a_figure_the_customer_never_said() -> None:
+    result = check(
+        "Your minimum due is four thousand five hundred rupees.",
+        protected_values=PROTECTED,
+        customer_stated=[],
+        otp_verified=False,
+    )
+    assert result.blocked
+    assert result.violations[0].rule_id == "balance_before_verification"

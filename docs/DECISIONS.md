@@ -143,7 +143,9 @@ cite vendor numbers was human.
 ---
 
 ## D-005 — Deepgram Aura-2 for text-to-speech, Sarvam as a recorded A/B
-**Date:** 2026-11-18 · **Stage:** Planning · **Status:** Accepted
+**Date:** 2026-11-18 · **Stage:** Planning ·
+**Status:** Superseded in part by [D-025] — the comparison voice is now Azure
+`en-IN`, not Sarvam. Aura-2 remains the starting default.
 
 **Decision:** Default to Aura-2. Keep TTS behind a single swappable interface.
 Record the same call through Sarvam Bulbul v3 (`en-IN`) as a comparison if time
@@ -743,3 +745,103 @@ the defects surfaced before any of them reached a recorded call.
 
 **Feeds:** writeup §Make it better · writeup §AI tools used · interview Q
 "show us a call where it broke"
+
+---
+
+## D-025 — Hyperscaler speech reviewed; Azure `en-IN` replaces Sarvam as the TTS comparison
+**Date:** 2026-11-18 · **Stage:** Planning (revision) · **Status:** Accepted
+**Supersedes in part:** D-005
+
+**Decision:** Three changes, and one thing held.
+
+1. **Speech-to-text stays Deepgram Nova-3.** Held, with a sharper reason than
+   D-004 gave.
+2. **The text-to-speech comparison becomes Azure AI Speech `en-IN`** (Neerja /
+   Prabhat), replacing Sarvam Bulbul v3.
+3. **It is promoted from a Friday stretch to a real comparison**, because the
+   voice it offers is the gap D-005 accepted rather than closed.
+4. Aura-2 remains the *starting* default. The listening test (B3) decides
+   which ships.
+
+**What prompted this:** the question of why the hyperscalers were not
+considered, and whether their free tiers were being left on the table. The
+premise was right and the original answer was incomplete.
+
+**Free tiers, checked rather than assumed**
+
+| Provider | STT free | TTS free | Duration |
+|---|---|---|---|
+| **Azure AI Speech (F0)** | 5 hrs/month | 0.5M chars/month | Perpetual, resets monthly |
+| Google Cloud | 60 min/month | 1M chars/month | Ongoing, plus $300 / 90-day credit |
+| AWS | 60 min/month | Polly free tier unconfirmed | 12 months only |
+| Deepgram | $200 credit spanning both | | Until spent |
+
+Azure's F0 tier is roughly 100 three-minute calls a month, permanently — it
+would carry this entire project at no cost. **Free tier was therefore not a
+reason to prefer Deepgram, and implying it was would have been wrong.** Cost
+barely separates these providers at this volume.
+
+**Why speech-to-text stays Deepgram — the real reason**
+
+The brief requires handling customers who mix Hindi and English *inside a
+single sentence*: "paisa next week tak aa jayega, I'll clear it." Deepgram's
+`language=multi` is built for intra-utterance code-switching. Azure and Google
+lead with language *identification* — decide which language the speaker is
+using, then transcribe in it. That is built for "this caller is speaking
+Tamil", not "this sentence is half Hindi". Different problem, and the brief
+hands us the harder one.
+
+This is a claim, not a measurement. Test B1 scores entity accuracy on Hinglish
+amounts, dates and payment modes, and if Deepgram does not clearly win there,
+the claim does not survive contact and the choice should change.
+
+**Why the text-to-speech choice changes**
+
+D-005 accepted "no Indian English voice" as a trade-off and parked Sarvam as a
+maybe. That was too comfortable. Azure offers `en-IN` neural voices on a
+perpetual free tier that covers the project — the exact gap, closed, at no
+cost, from a vendor a bank would plausibly already have a contract with.
+Sarvam is the more interesting India-specialist story, but Azure is the
+stronger engineering answer and the easier one to defend.
+
+| Option | Pro | Con | Verdict |
+|---|---|---|---|
+| Deepgram Aura-2 | One vendor, one key, lowest latency | No `en-IN` voice | **Starting default** |
+| **Azure `en-IN`** | Indian voices, perpetual free tier, enterprise-credible | Second vendor; F0 concurrency caps; account needs a card | **Comparison, may become default** |
+| Sarvam Bulbul v3 | Purpose-built for Indian languages | Smaller free credit, less proven at conversational latency | Dropped as the A/B |
+| AWS Polly `en-IN` (Kajal) | Indian voice available | Free tier unconfirmed, slower time-to-first-byte | Rejected |
+
+**Why no hyperscaler speech-to-speech model at all**
+
+AWS Nova Sonic, Azure Voice Live and Gemini Live collapse speech-to-text, the
+language model and text-to-speech into a single box. Those three choices are
+precisely what the brief says it wants to examine. Using one would forfeit the
+question rather than answer it — the same reason OpenAI's Realtime API was
+ruled out in D-002.
+
+**Why Aura-2 still starts as the default**
+
+Azure F0 has concurrency limits that would serialise batch runs, and an Azure
+account requires a card on file where Deepgram does not. Neither is fatal;
+both are friction on a Thursday with a voice pipeline to wire. Starting on
+Aura-2 and swapping costs one line, because text-to-speech sits behind a
+single interface.
+
+**Trade-off accepted:** A second speech vendor to configure, and the real
+possibility that Thursday runs short and the comparison does not happen. If it
+does not, the writeup says so and names Azure `en-IN` as the known better
+answer that went unmeasured — which is more useful than silence.
+
+**What would change my mind:** B3. If Aura-2 handles rupee amounts and dates
+cleanly and the accent difference is marginal on a phone speaker, one vendor
+wins on simplicity.
+
+**AI involvement:** **AI proposed, overridden by the human.** The original
+recommendation dismissed the hyperscalers without checking their free tiers,
+and rationalised the missing Indian voice as an acceptable trade-off rather
+than looking for a way to close it. The challenge was correct on both counts.
+The STT reasoning survived the challenge; the TTS reasoning did not.
+
+**Feeds:** writeup §Stack · writeup §AI tools used (a case where my judgement
+overrode the assistant's) · interview Q "why this voice?" · interview Q "why
+not AWS or Azure?"

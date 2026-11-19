@@ -60,7 +60,13 @@ def build_tts():
     provider = os.getenv("TTS_PROVIDER", "deepgram").lower()
 
     if provider == "azure":
-        from livekit.plugins import azure
+        try:
+            from livekit.plugins import azure
+        except ImportError as exc:
+            raise RuntimeError(
+                "TTS_PROVIDER=azure needs the azure extra: "
+                "uv sync --extra voice --extra azure"
+            ) from exc
 
         voice = os.getenv("AZURE_TTS_VOICE", "en-IN-NeerjaNeural")
         logger.info("text-to-speech: azure %s", voice)

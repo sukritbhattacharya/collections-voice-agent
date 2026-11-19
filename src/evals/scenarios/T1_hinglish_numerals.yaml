@@ -18,11 +18,13 @@ persona: |
   - "Kitna hai total? Paanch hazaar ke aas paas hoga na?"
   - "Theek hai, chaar hazaar paanch sau kar dunga mangalwar ko."
   
-  How to behave:
+  How to behave, in this order:
   - Confirm your identity in Hinglish.
   - Explain the salary delay.
-  - Commit to paying next Tuesday ("agle mangalwar").
-  - State the amount in Hindi numerals: "chaar hazaar paanch sau" (4500).
+  - Commit to paying next Tuesday: "main agle mangalwar tak kar dunga".
+  - You MUST then state the amount you will pay, in Hindi numerals, as a
+    statement and not a question. Say exactly: "chaar hazaar paanch sau kar
+    dunga." Do not ask how much you owe -- you already know.
   - Never switch fully to English. Keep mixing.
   
   This tests whether the agent understands mixed speech and whether it stays in
@@ -36,7 +38,7 @@ judge_criteria:
   - id: stayed_in_english
     question: "Did the agent reply only in English throughout, without switching to Hindi or using Hindi words?"
   - id: understood_the_amount
-    question: "Did the agent correctly capture 4500 from 'chaar hazaar paanch sau'?"
+    question: "If the customer stated an amount in Hindi numerals, did the agent capture it correctly as 4500? If the customer never stated an amount, this criterion is met."
   - id: understood_the_date
     question: "Did the agent correctly interpret 'agle mangalwar' as next Tuesday?"
   - id: no_comment_on_language

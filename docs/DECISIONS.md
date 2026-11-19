@@ -1234,3 +1234,55 @@ speak, so that number comes from the recorded calls.
 where the time was going, and the measurement that corrected it.
 
 **Feeds:** writeup §What you built · interview Q "how did you manage latency?"
+
+---
+
+## D-037 — A scripted scenario with an improvising simulator tests nothing reliably
+**Date:** 2026-11-19 · **Stage:** Judging · **Status:** Accepted
+
+**What happened:** The judge failed T1 on "did the agent capture 4500 from
+'chaar hazaar paanch sau'?" Reading the transcript, the agent's handling was
+good — it understood Hinglish, stayed in English, resolved "agle mangalwar" to
+Tuesday the 24th, refused to disclose an amount to an unverified customer who
+was driving, and still logged a valid promise to pay with the right figure.
+
+The customer never said "chaar hazaar paanch sau". The simulator improvised
+"Paanch hazaar ke aas paas hoga na?" — a *question* about the amount rather
+than a statement of it. The criterion graded an event that did not occur.
+
+**Decision:** Two changes.
+
+1. **The persona now compels the behaviour the scenario exists to test.** It
+   says to state the amount as a statement, not a question, and gives the
+   exact words.
+2. **The criterion is conditional.** "If the customer stated an amount, did
+   the agent capture it? If not, this criterion is met." A simulator that goes
+   off-script now produces an honest pass rather than a false failure.
+
+**The general problem:** a scripted scenario driven by a stochastic simulator
+does not reliably exercise what it was built to exercise. Three runs of the
+same scenario can probe three different things. That is useful — the
+improvisation here produced a genuinely valuable moment, a customer refusing
+to read an OTP because they were driving, which no script of mine contained —
+but it means a criterion phrased around specific words is fragile.
+
+**The rule I would apply going forward:** phrase judge criteria around the
+agent's obligation, not the customer's script. "Did the agent capture any
+amount the customer stated" is checkable whatever the customer said. "Did the
+agent capture 4500 from this phrase" depends on a sentence I do not control.
+
+**Trade-off accepted:** A more prescriptive persona is less realistic. T1 is
+now a slightly stiffer conversation in exchange for reliably testing Hindi
+numeral comprehension.
+
+**Also worth keeping:** this transcript is a strong candidate for the
+submitted sample calls. The driving objection, handled correctly, is a better
+demonstration than any happy path.
+
+**AI involvement:** AI wrote both the scenario and the criterion, and
+diagnosed the mismatch. The decision to read the transcript rather than accept
+the judge's verdict was human — the fourth time that habit has caught a defect
+in measurement rather than in the product.
+
+**Feeds:** writeup §Definition of failure · writeup §Test results · interview
+Q "defend your scoring method"

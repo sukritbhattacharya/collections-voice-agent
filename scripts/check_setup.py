@@ -87,6 +87,48 @@ def check_webhook() -> bool:
         return False
 
 
+def check_azure() -> bool:
+    """Confirm the Speech key works and that en-IN voices are reachable.
+
+    Listing voices is the cheapest authenticated call Azure offers, and it
+    also proves the region has the Indian voices we chose it for -- a key
+    that authenticates in a region without them would pass a naive check and
+    fail at call time.
+    """
+    key = os.getenv("AZURE_SPEECH_KEY", "")
+    region = os.getenv("AZURE_SPEECH_REGION", "centralindia")
+    if not key:
+        row("Azure Speech", SKIP, "not set - only needed for the en-IN voice A/B")
+        return True
+    try:
+        resp = httpx.get(
+            f"https://{region}.tts.speech.microsoft.com"
+            "/cognitiveservices/voices/list",
+            headers={"Ocp-Apim-Subscription-Key": key},
+            timeout=15.0,
+        )
+        if resp.status_code == 401:
+            row("Azure Speech", FAIL, "key rejected - check KEY 1 and the region")
+            return False
+        if resp.status_code != 200:
+            row("Azure Speech", FAIL, f"HTTP {resp.status_code} from {region}")
+            return False
+        voices = resp.json()
+        indian = [v["ShortName"] for v in voices if v.get("Locale") == "en-IN"]
+        wanted = os.getenv("AZURE_TTS_VOICE", "en-IN-NeerjaNeural")
+        if wanted not in indian:
+            row(
+                "Azure Speech", FAIL,
+                f"{wanted} not in {region}; available: {', '.join(indian[:3]) or 'none'}",
+            )
+            return False
+        row("Azure Speech", OK, f"{region}, {len(indian)} en-IN voices, {wanted} present")
+        return True
+    except Exception as exc:  # noqa: BLE001
+        row("Azure Speech", FAIL, f"{type(exc).__name__}: {str(exc)[:70]}")
+        return False
+
+
 def check_livekit() -> bool:
     present = [v for v in ("LIVEKIT_URL", "LIVEKIT_API_KEY", "LIVEKIT_API_SECRET")
                if os.getenv(v)]
@@ -108,6 +150,7 @@ def main() -> int:
         check_deepgram(),
         check_webhook(),
         check_livekit(),
+        check_azure(),
     ]
     print()
     if results[0]:

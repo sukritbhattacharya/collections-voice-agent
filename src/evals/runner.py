@@ -63,7 +63,12 @@ def run_one(
 ) -> tuple[RunScore, dict[str, Any]]:
     """One conversation, end to end."""
     account = ACCOUNTS[scenario["customer_id"]]
-    agent = CollectionsAgent(account=account, version=version, model=model)
+    # No webhook during evaluation. A suite run would post 144 outcomes to the
+    # CRM stand-in, which exhausts its quota and tells us nothing -- the local
+    # mirror in results/ is what scoring reads. Live calls still deliver.
+    agent = CollectionsAgent(
+        account=account, version=version, model=model, webhook_url=""
+    )
     simulator = Simulator(persona=scenario["persona"])
 
     started = time.time()

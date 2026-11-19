@@ -195,7 +195,9 @@ async def deliver(outcome: CallOutcome, *, webhook_url: str | None = None) -> bo
     """
     _mirror_locally(outcome)
 
-    url = webhook_url or os.getenv("OUTCOME_WEBHOOK_URL", "")
+    # An empty string is an explicit "do not deliver" (evaluation runs); None
+    # means "use whatever is configured" (live calls).
+    url = os.getenv("OUTCOME_WEBHOOK_URL", "") if webhook_url is None else webhook_url
     if not url:
         return False
 

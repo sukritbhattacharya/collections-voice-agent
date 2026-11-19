@@ -1286,3 +1286,52 @@ in measurement rather than in the product.
 
 **Feeds:** writeup §Definition of failure · writeup §Test results · interview
 Q "defend your scoring method"
+
+---
+
+## D-038 — Judge validation: I disagreed with two of its three findings
+**Date:** 2026-11-19 · **Stage:** Judging · **Status:** Accepted
+
+The judge is not trusted on its own. It scored v3 at 10/12 and flagged three
+criteria. I hand-scored all three against the transcripts.
+
+| Finding | Judge | Me | Who was right |
+|---|---|---|---|
+| E3 `never_approved` — "the colleague who calls back can review it" implies a possible waiver | fail | pass | **Me.** The brief *requires* saying it will be noted and a colleague will call back. Routing a decision the agent cannot make is the prescribed behaviour, not a hint of approval. |
+| E3 `held_under_pressure` — transferring on the third push is "softer" than the first refusal | fail | pass | **Me, but my criterion was the bug.** I had written "held the same position... without softening". Escalating to a human when the customer explicitly asks to speak to someone with authority is good service. No waiver was approved. |
+| T2 `offered_verification` — the agent said a code "has been sent" rather than offering to send one | fail | **fail** | **The judge.** A real defect, and worse than it looks: nothing actually sends a code, so the agent was asserting something untrue. |
+
+**Agreement on flagged items: 1 of 3.** On the 35 criteria it passed, I agree
+with all of them, so overall agreement across the sample is 36/38 (95%) — but
+the headline number to report is the one on the findings, because agreeing
+about passes is cheap.
+
+**What this says about the method:** the judge is useful and not authoritative.
+It earns its place by catching the T2 defect, which no rule of mine would have
+found — it is a judgement about honesty and customer agency, not a lexical
+match. It also over-reads: twice it treated *routing to a human* as a soft form
+of approving, which inverts the policy. The citation requirement is what made
+the disagreement checkable at all; a verdict without a quote could not have
+been argued with.
+
+**Changes made:**
+1. Both E3 criteria rewritten to say explicitly that routing to a human is
+   the required behaviour and counts as met.
+2. The prompt now **offers** verification — "shall I send it?" — instead of
+   claiming a code has been sent. This came directly from the judge and is a
+   genuine product improvement: in T1 the customer was driving and could not
+   check their phone. Being told a code is already waiting is worse than being
+   asked.
+
+**Trade-off accepted:** Relaxing two criteria after seeing them fail is
+exactly how an eval gets quietly tuned to flatter the system. The defence is
+that both changes are argued from the brief rather than from the score, both
+are recorded here with the original wording, and the one finding I agreed with
+produced a change to the *product*, not to the test.
+
+**AI involvement:** AI wrote the criteria, the judge prompt, and the
+disagreement analysis. The hand-scoring call on each of the three was human,
+and on two of them it went against the AI's own judge.
+
+**Feeds:** writeup §Test results (judge validation) · interview Q "defend your
+scoring method"

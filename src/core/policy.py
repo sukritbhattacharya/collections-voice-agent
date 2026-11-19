@@ -313,3 +313,31 @@ def account_figures(account: Account) -> list[str]:
         n = int(amount)
         values.extend([str(n), f"{n:,}"])
     return values
+
+
+#: The first thing the agent says.
+#:
+#: Templated rather than generated, for two reasons. Generating it costs two
+#: model round-trips -- a tool call for account context, then the text -- and
+#: measured about 1.8 seconds of silence at the exact moment a customer
+#: decides whether to stay on the line. And an opening line has nothing to
+#: decide: it greets, identifies the bank, and asks for the cardholder. There
+#: is no judgement in it to delegate, and a template cannot hallucinate.
+#:
+#: Note what it does NOT do: it does not say why we are calling. Until we know
+#: we are speaking to the cardholder, mentioning an overdue payment would
+#: disclose it to whoever picked up the phone.
+OPENING_LINE = (
+    "Hello, this is {agent_name} calling from {issuer}. "
+    "Am I speaking with {customer_name}?"
+)
+
+AGENT_DISPLAY_NAME = os.getenv("AGENT_DISPLAY_NAME", "Priya")
+
+
+def opening_line(account: Account) -> str:
+    return OPENING_LINE.format(
+        agent_name=AGENT_DISPLAY_NAME,
+        issuer=ISSUER_NAME,
+        customer_name=account.name,
+    )

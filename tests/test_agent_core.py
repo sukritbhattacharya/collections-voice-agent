@@ -37,11 +37,38 @@ def _agent(script, version="v3"):
     )
 
 
+def test_opening_line_is_templated_not_generated():
+    """The greeting costs no model call, so the first word is not preceded by
+    two round-trips of silence."""
+    client = StubClient(["should not be reached"])
+    agent = CollectionsAgent(
+        account=ACCOUNTS["MB-4471"], version="v3", client=client, model="stub"
+    )
+    turn = agent.open_call()
+
+    assert client.calls == 0, "the opening must not call the model"
+    assert "Rohan Mehta" in turn.text
+    assert "Mumbai Bank" in turn.text
+    assert agent.transcript[0]["text"] == turn.text
+
+
+def test_opening_line_does_not_disclose_why_we_are_calling():
+    """Whoever answered may not be the cardholder."""
+    agent = _agent([])
+    text = agent.open_call().text.lower()
+    for leak in ("overdue", "payment", "outstanding", "due", "collection"):
+        assert leak not in text, f"opening line leaks {leak!r}: {text}"
+
+
+def test_model_is_told_the_account_context_it_did_not_fetch():
+    agent = _agent([])
+    agent.open_call()
+    seeded = [m for m in agent.messages if m["role"] == "system"]
+    assert seeded and "interest_pct_monthly" in seeded[0]["content"]
+
+
 def test_happy_path_captures_promise_to_pay():
     agent = _agent([
-        ("get_account_context", {}),
-        "Good morning, this is Mumbai Bank calling about your credit card. "
-        "Am I speaking with Rohan Mehta?",
         "Thank you. Your minimum payment is overdue. When can you clear it?",
         ("log_outcome", {
             "outcome": "PROMISE_TO_PAY", "ptp_date": FRIDAY,
@@ -52,9 +79,7 @@ def test_happy_path_captures_promise_to_pay():
         "Thank you, I have noted that. Goodbye.",
     ])
 
-    opening = agent.open_call()
-    assert "Rohan Mehta" in opening.text
-    assert [e.name for e in opening.tool_events] == ["get_account_context"]
+    assert "Rohan Mehta" in agent.open_call().text
 
     agent.respond("Yes, speaking.")
     agent.respond("I can pay on Friday.")
@@ -71,7 +96,8 @@ def test_output_filter_blocks_forbidden_speech_inside_the_loop():
     agent = _agent([
         "If you do not pay, this will badly damage your CIBIL score.",
     ])
-    turn = agent.open_call()
+    agent.open_call()
+    turn = agent.respond("Yes, this is Rohan.")
 
     assert turn.violations == ["compliance:credit_bureau"]
     assert "CIBIL" not in turn.text
@@ -86,7 +112,8 @@ def test_v2_has_no_output_filter():
     agent = _agent(
         ["If you do not pay, this will damage your CIBIL score."], version="v2"
     )
-    turn = agent.open_call()
+    agent.open_call()
+    turn = agent.respond("Yes, this is Rohan.")
     assert turn.violations == []
     assert "CIBIL" in turn.text
 
@@ -94,7 +121,6 @@ def test_v2_has_no_output_filter():
 def test_abuse_forces_transfer_regardless_of_the_model():
     """The model is scripted to keep pitching. The tripwire overrules it."""
     agent = _agent([
-        "Good morning, this is Mumbai Bank.",
         "So when can you make the payment?",  # model ignores the abuse
     ])
     agent.open_call()
@@ -103,13 +129,14 @@ def test_abuse_forces_transfer_regardless_of_the_model():
     assert turn.forced_transfer == "ABUSE"
     assert agent.state.transfer_requested is True
     assert "tripwire:abuse" in agent.state.guardrail_hits
+    # The seeded account context is also a system message, so check the last.
     operator = [m for m in agent.messages if m["role"] == "system"]
-    assert operator and "ABUSE" in operator[0]["content"]
+    assert operator and "ABUSE" in operator[-1]["content"]
 
 
 def test_hardship_without_job_loss_does_not_transfer():
     """Being short of money is the normal subject of these calls."""
-    agent = _agent(["Good morning.", "I understand. When could you manage it?"])
+    agent = _agent(["I understand. When could you manage it?"])
     agent.open_call()
     turn = agent.respond("I don't have money right now, salary is delayed.")
     assert turn.forced_transfer is None
@@ -122,7 +149,8 @@ def test_balance_withheld_until_verified_then_released():
         ("verify_otp", {"code": "4471"}),
         "Thank you. Your outstanding balance is 47,500 rupees.",  # after OTP
     ])
-    blocked = agent.open_call()
+    agent.open_call()
+    blocked = agent.respond("Yes, speaking.")
     assert blocked.violations == ["compliance:balance_before_verification"]
     assert "47,500" not in blocked.text
 
@@ -134,14 +162,15 @@ def test_balance_withheld_until_verified_then_released():
 def test_v1_cannot_reach_the_fact_tools():
     """v1 is the original prompt with outcome logging only."""
     agent = _agent([("get_account_context", {})], version="v1")
-    turn = agent.open_call()
+    agent.open_call()
+    turn = agent.respond("Yes, speaking.")
     assert turn.tool_events == []
     assert "not available" in turn.text
 
 
 def test_missing_outcome_falls_back_rather_than_failing():
     """A call that logs nothing must still produce a record."""
-    agent = _agent(["Hello?", "Are you there?"], version="v2")  # extractor off
+    agent = _agent(["Are you there?"], version="v2")  # extractor off
     agent.open_call()
     agent.respond("...")
 
@@ -166,6 +195,7 @@ def test_invalid_outcome_is_returned_to_the_model_for_repair():
         "Noted, thank you.",
     ])
     agent.open_call()
+    agent.respond("I'll pay Friday.")
 
     first, second = agent.registry.events[0], agent.registry.events[1]
     assert first.result["logged"] is False

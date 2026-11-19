@@ -1176,3 +1176,61 @@ in the product.
 
 **Feeds:** writeup §Test results · writeup §Make it better · interview Q
 "defend your scoring method"
+
+---
+
+## D-036 — The opening line is a template, and the delay was never the model
+**Date:** 2026-11-19 · **Stage:** Voice wiring · **Status:** Accepted
+
+**Decision:** The agent's first utterance is templated from config. Account
+context is fetched directly rather than through a tool call. The model's
+history is seeded with both, so from the customer's first reply it behaves as
+though it had produced the greeting itself.
+
+**Why:** Generating the greeting cost two model round-trips — a tool call for
+account context, then the text — before a single word was spoken. An opening
+line has nothing to decide: it greets, names the bank, asks for the
+cardholder. There is no judgement in it worth delegating, and a template
+cannot hallucinate.
+
+**What it does deliberately NOT say:** why we are calling. Until the
+cardholder is confirmed, mentioning an overdue payment discloses it to whoever
+answered the phone. There is a test asserting the greeting contains none of
+"overdue", "payment", "outstanding" or "due" — the T6 third-party scenario
+exists because this is a real failure mode, and the opening line is where it
+would happen first.
+
+**What the measurement actually showed:** removing the model from the opening
+saved about 0.2 seconds, not the 1.8 I expected. Measured breakdown of a 7.3
+second opening:
+
+| Stage | Time |
+|---|---|
+| Caller connect and worker dispatch | ~5.6s |
+| Audio track publication and subscription | ~1.5s |
+| Text-to-speech to first audible frame | ~0.2s |
+
+**The opening delay is infrastructure, not inference.** The model contributes
+essentially nothing now, and text-to-speech contributes 0.2s. Dispatch
+dominates, because LiveKit spawns a process per job. On a real phone call that
+window is hidden behind ring time; in a browser demo it is visible as a pause
+after pressing the button.
+
+**Worth recording as a discipline point:** I optimised the component I had
+built rather than the one that was slow, and only measurement told me which
+was which. The fix is still right — it removes an unnecessary dependency from
+the critical path and makes the greeting unhallucinatable — but the headline
+reason I gave for it was wrong.
+
+**Also fixed:** Silero voice activity detection was loading inside the
+entrypoint, so every call paid about a second for it. Moved to the worker
+prewarm hook, where nobody is listening.
+
+**What this does not measure:** M5 is *mid-conversation* turn latency —
+end of customer speech to first audio of the reply. The smoke test does not
+speak, so that number comes from the recorded calls.
+
+**AI involvement:** AI-originated, including the incorrect prediction about
+where the time was going, and the measurement that corrected it.
+
+**Feeds:** writeup §What you built · interview Q "how did you manage latency?"

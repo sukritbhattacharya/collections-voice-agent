@@ -75,6 +75,17 @@ def build_tts():
     return deepgram.TTS(model=voice)
 
 
+def prewarm(proc) -> None:
+    """Load the voice activity detector once per worker, not once per call.
+
+    Silero takes roughly a second to initialise. Doing that inside the
+    entrypoint charges every call for it, as dead air before the agent can
+    speak. Prewarming moves the cost to worker startup, where nobody is
+    listening.
+    """
+    proc.userdata["vad"] = silero.VAD.load()
+
+
 async def entrypoint(ctx: JobContext) -> None:
     await ctx.connect()
 
@@ -94,7 +105,7 @@ async def entrypoint(ctx: JobContext) -> None:
         stt=build_stt(),
         llm=CoreBackedLLM(core, telemetry),
         tts=build_tts(),
-        vad=silero.VAD.load(),
+        vad=ctx.proc.userdata.get("vad") or silero.VAD.load(),
     )
 
     @session.on("user_input_transcribed")
@@ -140,4 +151,6 @@ async def entrypoint(ctx: JobContext) -> None:
 
 
 if __name__ == "__main__":
-    cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint))
+    cli.run_app(
+        WorkerOptions(entrypoint_fnc=entrypoint, prewarm_fnc=prewarm)
+    )

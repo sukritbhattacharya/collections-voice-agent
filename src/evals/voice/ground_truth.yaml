@@ -1,0 +1,104 @@
+# Ground truth for the speech recognition accuracy harness.
+#
+# Scored on ENTITIES, not words. A transcript that renders "mangalwar" as
+# "mangal war" is fine; one that turns "chaar hazaar paanch sau" into 4,000 is
+# not. On a collections call the amount, the date and the payment rail are the
+# three things that must survive transcription -- everything else can be
+# approximate and the call still works.
+#
+# Recorded by a human speaker. Synthesised audio would be testing one vendor's
+# text-to-speech against another's speech-to-text, which says nothing about
+# how the system handles a real customer.
+#
+# Each clip is played twice: once at the recorded sample rate, once
+# downsampled to 8kHz mu-law to approximate a phone line. The gap between the
+# two is the honest cost of demonstrating this in a browser.
+
+utterances:
+  # --- amounts in Hindi numerals: the core test -------------------------
+  - id: "01"
+    say: "Chaar hazaar paanch sau kar dunga agle mangalwar ko"
+    expect: { amount: 4500, date_ref: "next tuesday" }
+
+  - id: "02"
+    say: "Pachaas hazaar se zyada hai, main itna kaise doon"
+    expect: { amount: 50000 }
+
+  - id: "03"
+    say: "Do hazaar paanch sau abhi kar deta hoon"
+    expect: { amount: 2500 }
+
+  - id: "04"
+    say: "Ek lakh bees hazaar ka outstanding hai mera"
+    expect: { amount: 120000 }
+
+  - id: "05"
+    say: "Saat sau pachas rupaye late fee lag gaya kya"
+    expect: { amount: 750 }
+
+  # --- the ambiguity worth measuring ------------------------------------
+  # "saat" is seven and "saath" is sixty, one letter apart. If recognition
+  # confuses them the agent records the wrong commitment.
+  - id: "06"
+    say: "Saat tarikh ko kar dunga"
+    expect: { date_ref: "7th" }
+
+  - id: "07"
+    say: "Saath hazaar ka balance hai"
+    expect: { amount: 60000 }
+
+  # --- payment rails ----------------------------------------------------
+  - id: "08"
+    say: "NEFT se kiya tha pichle hafte"
+    expect: { payment_mode: "NEFT", date_ref: "last week" }
+
+  - id: "09"
+    say: "UPI se paisa bhej diya tha do din pehle"
+    expect: { payment_mode: "UPI", date_ref: "two days ago" }
+
+  - id: "10"
+    say: "Net banking se payment kiya hai, statement mein dikh raha hai"
+    expect: { payment_mode: "net banking" }
+
+  - id: "11"
+    say: "IMPS kiya tha lekin reflect nahi hua abhi tak"
+    expect: { payment_mode: "IMPS" }
+
+  # --- dates and relative time ------------------------------------------
+  - id: "12"
+    say: "Salary aane ke baad, agle hafte tak kar dunga"
+    expect: { date_ref: "next week" }
+
+  - id: "13"
+    say: "Is mahine ke end tak, taarikh tees ko"
+    expect: { date_ref: "30th" }
+
+  - id: "14"
+    say: "Kal subah pakka kar dunga, promise"
+    expect: { date_ref: "tomorrow" }
+
+  # --- mixed code-switching, full sentences -----------------------------
+  - id: "15"
+    say: "Dekhiye, payment ka pata hai mujhe but salary delay ho gayi is month"
+    expect: {}
+
+  - id: "16"
+    say: "Minimum due kitna hai? Main poora clear kar dunga Friday tak"
+    expect: { date_ref: "friday" }
+
+  - id: "17"
+    say: "Late fee waive kar do na, main regular customer hoon"
+    expect: {}
+
+  - id: "18"
+    say: "Abhi gaadi chala raha hoon, baad mein call karna"
+    expect: {}
+
+  # --- edge: a figure stated as digits in English, in a Hindi sentence ---
+  - id: "19"
+    say: "Mere account mein sirf teen hazaar hai abhi"
+    expect: { amount: 3000 }
+
+  - id: "20"
+    say: "Pandrah sau ka late fee bol rahe the aapke log"
+    expect: { amount: 1500 }

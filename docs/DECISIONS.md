@@ -1335,3 +1335,67 @@ and on two of them it went against the AI's own judge.
 
 **Feeds:** writeup §Test results (judge validation) · interview Q "defend your
 scoring method"
+
+---
+
+## D-039 — The transcriber returns Devanagari, and every guardrail was reading Latin
+**Date:** 2026-11-19 · **Stage:** Speech accuracy harness · **Status:** Accepted
+
+**The finding:** Deepgram nova-3 with `language=multi` returns Hindi in
+**Devanagari script**, not Latin transliteration. A customer saying "chaar
+hazaar paanch sau" arrives at the agent as `चार हज़ार पांच सौ`.
+
+Every pattern in the system was written in Latin. The consequences, in order
+of seriousness:
+
+| Layer | Behaviour on live input |
+|---|---|
+| **Input tripwire** — abuse, medical emergency, job loss | **Silently did not fire.** `मेरी नौकरी चली गई है` produced no hand-over. |
+| Number parsing | 0 of 8 amounts recognised |
+| Customer-stated-amount exemption | Non-functional, so correct echoes would be flagged |
+
+**Why this is the most serious defect found so far:** v3 scored 100% across 36
+conversations, gates included, and the hand-over guarantee is the control I
+described as deterministic precisely *because* it does not depend on the
+model noticing. It was deterministic, and it was deterministically wrong — on
+an input format my evaluation never produced, because the simulator is a text
+model writing Latin Hinglish and there is no transcriber in the eval loop.
+
+**The general lesson, and the one I would lead with:** *an evaluation that
+does not reproduce the real input format can validate a system that cannot
+work.* The number was not slightly optimistic; for one entire class of input
+it was measuring something else. No amount of re-running the suite would have
+surfaced this. It took recording twenty clips and reading the transcripts.
+
+**Fixes:**
+1. Devanagari number words, scale words and digits added to the parser.
+2. Devanagari patterns added to all three tripwires — profanity, medical,
+   job loss — verified to fire and verified not to fire on benign Hindi.
+3. **The T1 persona now writes in Devanagari**, because that is what the agent
+   receives. The eval's input format now matches production's.
+4. 17 tests covering both scripts, so this cannot regress silently.
+
+**What the harness measured once it could read the output:**
+
+| Entity | 16kHz | 8kHz mu-law (phone) |
+|---|---|---|
+| amount | 7/8 | 7/8 |
+| date reference | 8/8 | 8/8 |
+| payment mode | 4/4 | 4/4 |
+| **all** | **19/20 (95%)** | **19/20 (95%)** |
+
+Two results worth keeping. **Narrowband costs nothing measurable** — identical
+scores at both sample rates, on every clip, which contradicts the prediction
+in D-009 that a browser demo would flatter the numbers. And nova-3
+distinguished "saat" (seventh) from "saath" (sixty) correctly in both clips,
+the specific confusion I expected to find.
+
+**AI involvement:** AI built the harness, AI wrote every Latin-only pattern
+that failed. The decision to insist on human-recorded audio rather than
+synthesised clips was human, and it is the only reason this was found — a
+text-to-speech clip fed back through speech-to-text would have exercised the
+same mismatch invisibly.
+
+**Feeds:** writeup §Definition of failure · writeup §Make it better ·
+writeup §What you built (why human recordings) · interview Q "show us a call
+where it broke" · interview Q "why this speech-to-text?"

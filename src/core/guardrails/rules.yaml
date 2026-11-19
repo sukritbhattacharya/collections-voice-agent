@@ -29,6 +29,12 @@ input_triggers:
       - '\b(shut\s+up|get\s+lost|go\s+to\s+hell)\b'
       - '\b(idiot|stupid|useless|nonsense)\s+(bank|agent|machine|robot|bot|people)s?\b'
       - '\b(bakwas|bakwaas|bewakoof|bewaqoof)\b'
+      # Devanagari. Deepgram nova-3 with language=multi returns Hindi in
+      # Devanagari, so Latin-only patterns are blind on live calls.
+      - '(बेवकूफ|बेवक़ूफ़|मूर्ख|बदतमीज|बदतमीज़|बकवास)'
+      - '(मादरचोद|भेनचोद|बहनचोद|चूतिया|चुतिया|गांडू|हरामी|कमीने|कुत्ते|साले)'
+      - '(चुप\s*(रहो|कर)|फोन\s*मत\s*(करो|करना)|परेशान\s*मत\s*(करो|करना))'
+      - '(बार\s*बार\s*(call|फोन|कॉल))'
 
   - id: medical_emergency
     reason: MEDICAL_EMERGENCY
@@ -44,6 +50,11 @@ input_triggers:
       - '\b(passed\s+away|expired|demise|death\s+in\s+the\s+family|funeral)\b'
       - '\b(bimar|bimaar|bemaar|tabiyat|tabiat|haspatal)\b'
       - '\b(my|mera|meri)\s+(father|mother|wife|husband|son|daughter|papa|mummy|maa)\s+\w{0,12}\s*(is|was|hai|tha|thi)?\s*(ill|sick|unwell|serious|critical)\b'
+      # Devanagari
+      - '(बीमार|बिमार|तबीयत|तबियत)'
+      - '(अस्पताल|हॉस्पिटल|हास्पिटल|आईसीयू|भर्ती)'
+      - '(ऑपरेशन|सर्जरी|कैंसर|एक्सीडेंट|दुर्घटना|हार्ट\s*अटैक)'
+      - '(गुज़र\s*गए|गुजर\s*गए|मृत्यु|देहांत|निधन)'
 
   - id: job_loss
     reason: JOB_LOSS
@@ -59,6 +70,11 @@ input_triggers:
       - '\b(company\s+(shut|closed|shutting)|business\s+(failed|closed|shut))\b'
       - '\b(naukri|nokri)\s+\w{0,8}\s*(chali\s+gayi|chhoot|gayi|nahi)\b'
       - '\bsalary\s+(not\s+)?(credited|received|came|aaya|nahi)\b'
+      # Devanagari
+      - '(नौकरी|नौकरी)\s*\S{0,12}\s*(चली\s*गई|छूट\s*गई|चली\s*गयी|नहीं\s*है|खो\s*दी)'
+      - '(बेरोज़गार|बेरोजगार|बेरोज़गारी)'
+      - '(नौकरी\s*से\s*(निकाल|हटा)|निकाल\s*दिया\s*(गया)?)'
+      - '(कंपनी\s*(बंद|बन्द)|काम\s*बंद\s*हो\s*गया)'
 
 output_rules:
   - id: credit_bureau

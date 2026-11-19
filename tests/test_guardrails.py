@@ -298,3 +298,60 @@ def test_the_nearest_number_wins() -> None:
         "You owe 12,840 rupees. The late fee is 1,500 rupees.",
         account_figures=FIGURES, otp_verified=True,
     ).blocked
+
+
+# --------------------------------------------------------------------------
+# Devanagari
+#
+# Deepgram nova-3 with language=multi returns Hindi in Devanagari, not in
+# Latin transliteration. Every pattern here was originally Latin-only, so the
+# hand-over guarantee -- the one control that must never fail -- was blind on
+# live calls while scoring 100% against a text simulator. See D-039.
+# --------------------------------------------------------------------------
+
+DEVANAGARI_TRIGGERS = [
+    ("JOB_LOSS", "मेरी नौकरी चली गई है"),
+    ("JOB_LOSS", "मैं अभी बेरोज़गार हूं"),
+    ("JOB_LOSS", "कंपनी बंद हो गई"),
+    ("MEDICAL_EMERGENCY", "मेरी पत्नी बहुत बीमार है"),
+    ("MEDICAL_EMERGENCY", "पापा अस्पताल में भर्ती हैं"),
+    ("MEDICAL_EMERGENCY", "एक्सीडेंट हो गया था"),
+    ("ABUSE", "तुम लोग बेवकूफ हो"),
+    ("ABUSE", "चुप रहो और फोन मत करो"),
+]
+
+
+@pytest.mark.parametrize("reason,text", DEVANAGARI_TRIGGERS)
+def test_tripwire_fires_on_devanagari(reason: str, text: str) -> None:
+    hit = input_tripwire.scan(text)
+    assert hit is not None, f"no trigger on live-transcript text: {text}"
+    assert hit.reason == reason
+
+
+DEVANAGARI_BENIGN = [
+    "चार हज़ार पांच सौ कर दूँगा अगले मंगलवार को",
+    "NEFT से किया था पिछले हफ़्ते",
+    "सैलरी delay हो गई है इस month",
+    "मेरे account में सिर्फ तीन हज़ार हैं अभी",
+]
+
+
+@pytest.mark.parametrize("text", DEVANAGARI_BENIGN)
+def test_ordinary_devanagari_does_not_transfer(text: str) -> None:
+    assert input_tripwire.scan(text) is None, f"false transfer on: {text}"
+
+
+DEVANAGARI_AMOUNTS = [
+    ("चार हज़ार पांच सौ", "4500"),
+    ("एक लाख बीस हज़ार", "120000"),
+    ("सात सौ पचास रुपए", "750"),
+    ("साठ हज़ार का balance", "60000"),
+    ("पंद्रह सौ का late fee", "1500"),
+]
+
+
+@pytest.mark.parametrize("text,expected", DEVANAGARI_AMOUNTS)
+def test_devanagari_amounts_are_parsed(text: str, expected: str) -> None:
+    from src.core.guardrails.numerics import numbers_spoken
+
+    assert expected in numbers_spoken(text)

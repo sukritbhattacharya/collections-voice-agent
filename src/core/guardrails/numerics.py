@@ -46,6 +46,31 @@ _HINDI_UNITS = {
     "sattar": 70, "assi": 80, "nabbe": 90, "nabbey": 90,
 }
 
+#: Hindi number words in Devanagari.
+#:
+#: This is not a nicety. Deepgram nova-3 with language=multi returns Hindi in
+#: Devanagari, not in Latin transliteration -- "chaar hazaar paanch sau" comes
+#: back as "चार हज़ार पांच सौ". Every numeric guardrail reads transcripts, so a
+#: parser that only knows Latin is blind on live calls, however well it scores
+#: against a text simulator.
+_DEVANAGARI_UNITS = {
+    "एक": 1, "दो": 2, "तीन": 3, "चार": 4,
+    "पांच": 5, "पाँच": 5, "छह": 6, "छे": 6, "सात": 7, "आठ": 8,
+    "नौ": 9, "दस": 10, "ग्यारह": 11, "बारह": 12, "तेरह": 13,
+    "चौदह": 14, "पंद्रह": 15, "पन्द्रह": 15, "सोलह": 16, "सत्रह": 17,
+    "अठारह": 18, "उन्नीस": 19, "बीस": 20, "तीस": 30, "चालीस": 40,
+    "पचास": 50, "साठ": 60, "सत्तर": 70, "अस्सी": 80, "नब्बे": 90,
+}
+
+_DEVANAGARI_SCALES = {
+    "सौ": 100,
+    "हज़ार": 1_000, "हजार": 1_000,
+    "लाख": 100_000, "करोड़": 10_000_000, "करोड": 10_000_000,
+}
+
+#: Devanagari digits, which smart formatting sometimes emits.
+_DEVANAGARI_DIGITS = str.maketrans("०१२३४५६७८९", "0123456789")
+
 _SCALES = {
     "hundred": 100,
     "thousand": 1_000,
@@ -56,15 +81,16 @@ _SCALES = {
     "sau": 100,
     "hazaar": 1_000, "hazar": 1_000, "hajaar": 1_000, "hajar": 1_000,
 }
+_SCALES.update(_DEVANAGARI_SCALES)
 
 _SKIP = {"and", "a", "-", "aur"}
 
 # Comma-grouped numbers must stay one token. Splitting "10,000" into
 # "10" "," "000" invents a bare "000" that later reads as a rupee amount.
-_TOKEN_RE = re.compile(r"[A-Za-z]+|\d[\d,]*(?:\.\d+)?|\S")
+_TOKEN_RE = re.compile(r"[A-Za-z]+|[\u0900-\u097F]+|\d[\d,]*(?:\.\d+)?|\S")
 
 
-_MERGED_UNITS = {**_UNITS, **_HINDI_UNITS}
+_MERGED_UNITS = {**_UNITS, **_HINDI_UNITS, **_DEVANAGARI_UNITS}
 
 #: Hindi scale words are safe in any context; the unit words are not. "do"
 #: (two) and "char" (four) are ordinary English words, so reading Hindi
@@ -74,7 +100,37 @@ _MERGED_UNITS = {**_UNITS, **_HINDI_UNITS}
 #: The split is clean because of a rule the agent already follows: it speaks
 #: English only. So Hindi parsing is applied to what the CUSTOMER said, and
 #: never to what the agent is about to say.
-_HINDI_ONLY_SCALES = {"sau", "hazaar", "hazar", "hajaar", "hajar"}
+#: Hindi number words in Devanagari.
+#:
+#: This is not a nicety. Deepgram nova-3 with language=multi returns Hindi in
+#: Devanagari, not in Latin transliteration -- "chaar hazaar paanch sau" comes
+#: back as "चार हज़ार पांच सौ". Every numeric guardrail reads transcripts, so a
+#: parser that only knows Latin is blind on live calls, however well it scores
+#: against a text simulator.
+_DEVANAGARI_UNITS = {
+    "एक": 1, "दो": 2, "तीन": 3, "चार": 4,
+    "पांच": 5, "पाँच": 5, "छह": 6, "छे": 6, "सात": 7, "आठ": 8,
+    "नौ": 9, "दस": 10, "ग्यारह": 11, "बारह": 12, "तेरह": 13,
+    "चौदह": 14, "पंद्रह": 15, "पन्द्रह": 15, "सोलह": 16, "सत्रह": 17,
+    "अठारह": 18, "उन्नीस": 19, "बीस": 20, "तीस": 30, "चालीस": 40,
+    "पचास": 50, "साठ": 60, "सत्तर": 70, "अस्सी": 80, "नब्बे": 90,
+}
+
+_DEVANAGARI_SCALES = {
+    "सौ": 100,
+    "हज़ार": 1_000, "हजार": 1_000,
+    "लाख": 100_000, "करोड़": 10_000_000, "करोड": 10_000_000,
+}
+
+#: Devanagari digits, which smart formatting sometimes emits.
+_DEVANAGARI_DIGITS = str.maketrans("०१२३४५६७८९", "0123456789")
+
+#: Scale words that must not be read out of English text. "sau" and "hazaar"
+#: never appear in English, so they are safe to gate; the Devanagari ones are
+#: unambiguous by script.
+_HINDI_ONLY_SCALES = (
+    {"sau", "hazaar", "hazar", "hajaar", "hajar"} | set(_DEVANAGARI_SCALES)
+)
 
 
 def _units_for(include_hindi: bool) -> dict[str, int]:
@@ -101,6 +157,7 @@ def spell_out_to_digits(text: str, *, include_hindi: bool = False) -> str:
     bar than parsing arbitrary English.
     """
     units = _units_for(include_hindi)
+    text = text.translate(_DEVANAGARI_DIGITS)
     tokens = _TOKEN_RE.findall(text)
     out: list[str] = []
     i = 0
@@ -229,6 +286,7 @@ def numbers_spoken(text: str) -> set[str]:
     if not text:
         return set()
     found: set[str] = set()
+    text = text.translate(_DEVANAGARI_DIGITS)
     # Hindi numerals included: this reads what the CUSTOMER said.
     for source in (text, spell_out_to_digits(text, include_hindi=True)):
         for value, _ in find_bare_numbers(source):

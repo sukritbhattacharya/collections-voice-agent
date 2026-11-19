@@ -1399,3 +1399,54 @@ same mismatch invisibly.
 **Feeds:** writeup §Definition of failure · writeup §Make it better ·
 writeup §What you built (why human recordings) · interview Q "show us a call
 where it broke" · interview Q "why this speech-to-text?"
+
+---
+
+## D-040 — A corrected label, and a refusal to claim 100%
+**Date:** 2026-11-19 · **Stage:** Speech accuracy harness · **Status:** Accepted
+
+**Two decisions, both about not overstating a result.**
+
+**1. Clip 02's label was wrong, and I changed it after seeing the score.**
+
+The script asked the speaker to say "pachaas hazaar" (50,000). On the
+recording they said "paanch hazaar" (5,000), and confirmed it on listening
+back. Deepgram had transcribed exactly what was said; my ground truth was
+wrong.
+
+Changing a label after it causes a failure is indistinguishable, from the
+outside, from tuning the test until it passes. The reasons this is not that:
+the correction rests on the speaker's testimony about what they said, not on
+what would improve the number; the original label and the reason for the
+change are recorded in the ground-truth file itself; and the change is stated
+here rather than silently applied.
+
+**The cost is real and is recorded:** pachaas against paanch — 50,000 against
+5,000, a tenfold error on an amount — is now **untested**. It belongs beside
+saat/saath as a known ambiguity, and it needs its own clip.
+
+**2. The result is "no errors in twenty", not "100% accurate".**
+
+All 20 entities resolved correctly at both sample rates. Reporting that as
+100% would be the most flattering reading available of a very small sample.
+With zero failures in n trials, the rule of three puts the 95% upper bound on
+the error rate at roughly 3/n — so twenty clean observations support a claim
+of **about 85% or better**, and nothing stronger.
+
+The harness now prints that bound itself rather than leaving the point
+estimate to be quoted out of context. A measuring instrument that overstates
+its own precision is the same defect as a guardrail that misreads a sentence,
+one level up.
+
+**What I would say to the bank:** "No transcription errors in twenty
+utterances covering amounts, dates and payment rails, in both wideband and
+narrowband. That is encouraging and it is twenty utterances. Before launch I
+would want a few hundred, drawn from real call audio rather than a quiet room,
+and I would expect the number to fall."
+
+**AI involvement:** AI proposed reporting 95% and then 100%. The framing as a
+confidence bound was AI-originated on reflection; the decision to record the
+label correction prominently rather than quietly was human.
+
+**Feeds:** writeup §Test results · interview Q "defend your scoring method" ·
+interview Q "would you ship this?"

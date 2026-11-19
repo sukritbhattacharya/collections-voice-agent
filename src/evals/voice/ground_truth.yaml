@@ -20,9 +20,17 @@ utterances:
     say: "Chaar hazaar paanch sau kar dunga agle mangalwar ko"
     expect: { amount: 4500, date_ref: "next tuesday" }
 
+  # Label corrected after recording. The script asked for "pachaas hazaar"
+  # (50,000); the speaker said "paanch hazaar" (5,000) and confirmed it on
+  # listening back. Deepgram transcribed what was actually said. The label was
+  # wrong, not the measurement.
+  #
+  # Consequence: the pachaas/paanch confusion -- 50,000 against 5,000, a
+  # tenfold error on an amount -- is now UNTESTED. It belongs with the
+  # saat/saath pair as a known ambiguity worth a clip of its own.
   - id: "02"
-    say: "Pachaas hazaar se zyada hai, main itna kaise doon"
-    expect: { amount: 50000 }
+    say: "Paanch hazaar se zyada hai, main itna kaise doon"
+    expect: { amount: 5000 }
 
   - id: "03"
     say: "Do hazaar paanch sau abhi kar deta hoon"

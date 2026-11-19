@@ -230,6 +230,31 @@ def main(argv: list[str] | None = None) -> int:
     console.print()
     console.print(table)
 
+    # A point estimate from twenty observations is not an accuracy figure.
+    # With zero failures in n trials the rule of three puts the 95% upper
+    # bound on the error rate at about 3/n -- so "no errors in 20" supports a
+    # claim of roughly 85% or better, not 100%. Reporting the point estimate
+    # alone would be the most flattering reading of a small sample, which is
+    # exactly the habit this harness exists to avoid.
+    for rate in args.rates:
+        vals = [v for r in results if r.rate == rate for v in r.checks.values()]
+        if not vals:
+            continue
+        n, failures = len(vals), len(vals) - sum(vals)
+        label = "16kHz" if rate == "clean" else "8kHz"
+        if failures == 0:
+            floor = (1 - 3 / n) * 100
+            console.print(
+                f"  {label}: {n} entities, no errors observed. "
+                f"95% confidence supports [bold]>= {floor:.0f}%[/bold], "
+                f"not 100% - the sample is too small to say more."
+            )
+        else:
+            console.print(
+                f"  {label}: {n} entities, {failures} error(s) "
+                f"({sum(vals) / n * 100:.0f}% point estimate)."
+            )
+
     OUT_CSV.parent.mkdir(parents=True, exist_ok=True)
     with OUT_CSV.open("w", newline="", encoding="utf-8") as fh:
         writer = csv.writer(fh)

@@ -191,8 +191,14 @@ def _mirror_locally(outcome: CallOutcome) -> None:
     The local mirror is the source of truth for evaluation runs and the reason
     a webhook outage cannot cost us a result.
     """
-    OUTCOMES_LOG.parent.mkdir(parents=True, exist_ok=True)
-    with OUTCOMES_LOG.open("a", encoding="utf-8") as fh:
+    # Resolved per call rather than at import, so a test can point it
+    # somewhere disposable. Running the suite used to append to the real
+    # mirror -- 46 stub records sat in it, invisible on the dashboard because
+    # they carry no client surface, but still fake calls in the file the CRM
+    # path writes to. A test should not leave anything in a product data file.
+    target = Path(os.getenv("OUTCOME_MIRROR_PATH", "") or OUTCOMES_LOG)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with target.open("a", encoding="utf-8") as fh:
         fh.write(json.dumps(outcome.model_dump(mode="json")) + "\n")
 
 

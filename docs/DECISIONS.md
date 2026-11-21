@@ -3306,3 +3306,38 @@ accepted from someone else.
 
 **Feeds:** writeup §Why this language model · interview Q "why this language
 model?"
+
+## D-070 — The test suite was writing into the CRM mirror
+**Date:** 2026-11-22 · **Stage:** Submission · **Status:** Accepted
+
+**Decision:** `_mirror_locally` resolves its path per call from
+`OUTCOME_MIRROR_PATH`, and a `conftest.py` fixture points every test at a
+throwaway file and blanks the webhook URL.
+
+**What was wrong.** `deliver()` always mirrors an outcome to
+`results/outcomes.jsonl` — deliberately, so a webhook outage cannot cost a
+result. It also meant every test that finished a call appended a record to
+the file the live CRM path writes to and the dashboard reads. **Forty-six
+fake calls had accumulated** before I noticed one at the top of the file
+while checking something else.
+
+Nothing visible broke: the records carry no client surface, so the dashboard
+filtered them out, and the file is not committed. But `pytest` was mutating a
+product data file, and anyone running the suite during a code walkthrough
+would have added more.
+
+**Found by accident**, reading the last record in the mirror to confirm which
+model a smoke-tested call had used, and finding `"model": "stub"`.
+
+**Trade-off accepted:** an environment variable resolved on every write is
+marginally slower and one more thing to know about. The alternative — tests
+monkeypatching a module-level constant — breaks whenever the import graph
+changes, which is how this sort of fixture usually rots.
+
+**Also:** the 46 historical stub records were removed from the mirror, with a
+copy kept outside the repository first.
+
+**AI involvement:** AI-caused and AI-found. I wrote both the mirror and the
+tests and never considered that one wrote into the other's data.
+
+**Feeds:** writeup §What broke (instrument failures)

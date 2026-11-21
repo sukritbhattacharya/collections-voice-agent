@@ -216,6 +216,11 @@ class CallState:
     transfer_requested: bool = False
     transfer_reason: str | None = None
     guardrail_hits: list[str] = field(default_factory=list)
+    # Set only when the customer has been offered the chance to raise
+    # something else and declined. The outcome being logged is not the same
+    # event: the business of the call being finished does not mean the
+    # customer is. See D-049.
+    call_closed: bool = False
 
     MAX_OTP_ATTEMPTS: int = 3
 
@@ -256,6 +261,11 @@ def account_context(state: CallState) -> dict:
         "late_fee_inr": str(LATE_FEE_INR),
         "late_fee_threshold_inr": str(LATE_FEE_THRESHOLD_INR),
         "payment_reflect_working_days": PAYMENT_REFLECT_WORKING_DAYS,
+        # The agent used to deflect "how do I pay?" to the helpline, because
+        # it genuinely did not know. Correct behaviour, bad product: on a
+        # collections call that is the single most useful sentence available,
+        # and the rails are not customer-specific or sensitive. See D-050.
+        "accepted_payment_modes": list(KNOWN_PAYMENT_MODES),
     }
 
     # Amounts are always returned. Withholding them from the model as well as

@@ -20,7 +20,15 @@ import os
 import time
 
 from dotenv import load_dotenv
-from livekit.agents import Agent, AgentSession, JobContext, WorkerOptions, cli
+from livekit.agents import (
+    NOT_GIVEN,
+    Agent,
+    AgentSession,
+    JobContext,
+    TurnHandlingOptions,
+    WorkerOptions,
+    cli,
+)
 from livekit.plugins import deepgram, silero
 
 from src.core.agent_core import CollectionsAgent
@@ -82,9 +90,26 @@ def build_tts():
             ) from exc
 
         voice = os.getenv("AZURE_TTS_VOICE", "en-IN-NeerjaNeural")
-        logger.info("text-to-speech: azure %s", voice)
+
+        # A neutral neural voice reads an arrears line flatly, and flat on a
+        # debt call reads as a robocall -- which is the opposite of the trust
+        # the first two seconds have to earn. Neerja exposes an `empathetic`
+        # prosody, and it measured *faster* than her default (281ms against
+        # 302ms to first byte). Warmth here costs nothing. See D-048.
+        style_name = os.getenv("AZURE_TTS_STYLE", "empathetic")
+        style = (
+            azure.tts.StyleConfig(
+                style=style_name,
+                degree=float(os.getenv("AZURE_TTS_STYLE_DEGREE", "1.3")),
+            )
+            if style_name and style_name.lower() not in ("", "none")
+            else NOT_GIVEN
+        )
+
+        logger.info("text-to-speech: azure %s style=%s", voice, style_name or "-")
         return azure.TTS(
             voice=voice,
+            style=style,
             speech_key=os.environ["AZURE_SPEECH_KEY"],
             speech_region=os.getenv("AZURE_SPEECH_REGION", "centralindia"),
         )
@@ -125,6 +150,16 @@ async def entrypoint(ctx: JobContext) -> None:
         llm=CoreBackedLLM(core, telemetry),
         tts=build_tts(),
         vad=ctx.proc.userdata.get("vad") or silero.VAD.load(),
+        # Preemptive generation starts a reply on an interim transcript and
+        # discards it if the final differs. It buys roughly a second of
+        # perceived latency for a pipeline whose LLM is stateless.
+        #
+        # Ours is not. The core owns the conversation, so a speculative call
+        # is indistinguishable from a real turn: it appends to the history and
+        # the discarded turn stays there. Under barge-in -- when interim
+        # transcripts change most -- that corrupted the history on every
+        # interruption. See D-047.
+        turn_handling=TurnHandlingOptions(preemptive_generation=False),
     )
 
     client_info: dict[str, str] = {}

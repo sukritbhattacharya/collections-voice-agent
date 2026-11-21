@@ -20,6 +20,7 @@ than hidden. v2 -> v3 is a clean single variable.
 from __future__ import annotations
 
 import os
+import threading
 import time
 from datetime import date
 from dataclasses import dataclass, field
@@ -135,6 +136,34 @@ class AnthropicClient:
         return response
 
 
+# After the outcome is logged the customer gets a few turns to raise anything
+# else. If the model never calls `end_call` -- it forgot, or it is answering
+# something at length -- the call closes anyway. A model that forgets to hang
+# up must not be able to leave the line open. See D-049.
+MAX_TURNS_AFTER_OUTCOME = 4
+
+
+def _without_thinking(blocks: list[Any]) -> list[Any]:
+    """Drop reasoning blocks before they enter the stored history.
+
+    A thinking block carries a signature bound to the exact conversation
+    prefix that produced it. This agent mutates its own prefix by design: the
+    output filter rewrites what was said (D-035) and the tripwire inserts an
+    operator instruction mid-conversation (L3). Either one invalidates every
+    signature after it, and the next turn fails with
+
+        Invalid `signature` in `thinking` block. The block is bound to a
+        different conversation.
+
+    Reasoning that cannot survive the guardrails is reasoning this system
+    cannot keep. See D-047.
+    """
+    return [
+        b for b in blocks
+        if getattr(b, "type", None) not in ("thinking", "redacted_thinking")
+    ]
+
+
 class CollectionsAgent:
     """One call."""
 
@@ -171,6 +200,12 @@ class CollectionsAgent:
         self.turn_latencies: list[int] = []
         self.started_at = time.monotonic()
         self.ended = False
+        # The voice framework can call into the core speculatively and from
+        # more than one thread (preemptive generation). Two turns interleaving
+        # their appends to `self.messages` produces a history that belongs to
+        # neither of them. See D-047.
+        self._turn_lock = threading.Lock()
+        self._turns_after_outcome = 0
         self.extractor_error: str | None = None
         #: Figures the customer has volunteered. Echoing one back is correct
         #: call handling, not a disclosure.
@@ -242,45 +277,46 @@ class CollectionsAgent:
 
     def respond(self, customer_text: str) -> AgentTurn:
         """Handle one customer utterance."""
-        if not customer_text or not customer_text.strip():
-            raise ValueError("customer_text is empty; treat silence as a hang-up")
-        self.transcript.append({
-            "role": "customer",
-            "text": customer_text,
-            "otp_verified": self.state.otp_verified,
-        })
-        self.messages.append({"role": "user", "content": customer_text})
-        self.customer_stated |= numbers_spoken(customer_text)
+        with self._turn_lock:
+            if not customer_text or not customer_text.strip():
+                raise ValueError("customer_text is empty; treat silence as a hang-up")
+            self.transcript.append({
+                "role": "customer",
+                "text": customer_text,
+                "otp_verified": self.state.otp_verified,
+            })
+            self.messages.append({"role": "user", "content": customer_text})
+            self.customer_stated |= numbers_spoken(customer_text)
 
-        forced: str | None = None
-        if self.config.tripwire:
-            hit = input_tripwire.scan(customer_text)
-            if hit and not self.state.transfer_requested:
-                forced = hit.reason
-                self.state.transfer_requested = True
-                self.state.transfer_reason = hit.reason
-                self.state.guardrail_hits.append(f"tripwire:{hit.trigger_id}")
-                # Delivered as a mid-conversation system message: it reaches the
-                # model as an operator instruction rather than as something the
-                # customer appears to have said, and it leaves the cached
-                # prefix intact.
-                self.messages.append(
-                    {
-                        "role": "system",
-                        "content": (
-                            f"OPERATOR: the customer has disclosed {hit.reason}. "
-                            "Stop the collections conversation now. Do not ask "
-                            "for payment or a date. Acknowledge briefly and "
-                            "with warmth, call transfer_to_human with reason "
-                            f"{hit.reason}, then call log_outcome with "
-                            "DISPUTE_OR_TRANSFER."
-                        ),
-                    }
-                )
+            forced: str | None = None
+            if self.config.tripwire:
+                hit = input_tripwire.scan(customer_text)
+                if hit and not self.state.transfer_requested:
+                    forced = hit.reason
+                    self.state.transfer_requested = True
+                    self.state.transfer_reason = hit.reason
+                    self.state.guardrail_hits.append(f"tripwire:{hit.trigger_id}")
+                    # Delivered as a mid-conversation system message: it reaches the
+                    # model as an operator instruction rather than as something the
+                    # customer appears to have said, and it leaves the cached
+                    # prefix intact.
+                    self.messages.append(
+                        {
+                            "role": "system",
+                            "content": (
+                                f"OPERATOR: the customer has disclosed {hit.reason}. "
+                                "Stop the collections conversation now. Do not ask "
+                                "for payment or a date. Acknowledge briefly and "
+                                "with warmth, call transfer_to_human with reason "
+                                f"{hit.reason}, then call log_outcome with "
+                                "DISPUTE_OR_TRANSFER."
+                            ),
+                        }
+                    )
 
-        turn = self._generate()
-        turn.forced_transfer = forced
-        return turn
+            turn = self._generate()
+            turn.forced_transfer = forced
+            return turn
 
     def _generate(self, *, kickoff: str | None = None) -> AgentTurn:
         if kickoff:
@@ -294,8 +330,13 @@ class CollectionsAgent:
             response = self.client.complete(
                 system=self._system, messages=self.messages, tools=self._tools
             )
+            spoken_blocks = _without_thinking(response.content)
+            if not spoken_blocks:
+                # Reasoning only, nothing said and nothing called. Appending an
+                # empty assistant turn would be rejected outright.
+                break
             self.messages.append(
-                {"role": "assistant", "content": response.content}
+                {"role": "assistant", "content": spoken_blocks}
             )
 
             tool_uses = [b for b in response.content if b.type == "tool_use"]
@@ -352,7 +393,7 @@ class CollectionsAgent:
                 "otp_verified": self.state.otp_verified,
             })
 
-        ended = self.registry.outcome is not None
+        ended = self._should_end()
         self.ended = self.ended or ended
 
         return AgentTurn(
@@ -362,6 +403,28 @@ class CollectionsAgent:
             latency_ms=latency_ms,
             call_ended=ended,
         )
+
+    def _should_end(self) -> bool:
+        """Whether the call should hang up after this turn.
+
+        Logging the outcome used to end the call immediately. That conflates
+        two different events: the bank's business being finished, and the
+        customer being finished. Hanging up the moment a promise to pay is
+        captured is abrupt on a call that is already unwelcome, and it denies
+        the customer the one question they rang in their head to ask.
+
+        So the agent asks, and ends when they decline -- with a ceiling, so a
+        model that forgets to call `end_call` cannot hold the line open.
+        """
+        if self.state.call_closed:
+            return True
+        if self.registry.outcome is None:
+            return False
+        self._turns_after_outcome += 1
+        if self._turns_after_outcome > MAX_TURNS_AFTER_OUTCOME:
+            self.state.guardrail_hits.append("close_not_confirmed")
+            return True
+        return False
 
     def _rewrite_last_assistant_text(self, replacement: str) -> None:
         for message in reversed(self.messages):

@@ -1781,3 +1781,239 @@ measurement.
 
 **Feeds:** writeup §Stack (why this voice) · writeup §What I changed after
 testing · writeup §Where I overrode the AI · interview Q "why this voice?"
+
+---
+
+## D-047 — Barge-in corrupted the conversation, because a speculative turn is indistinguishable from a real one
+**Date:** 2026-11-21 · **Stage:** Live call, interruption testing · **Status:** Accepted
+
+**The symptom.** Interrupting the agent put it into a loop of "Sorry, I didn't
+catch that" — the same sentence as D-041, from a different cause. The
+transcriber was again working perfectly.
+
+**The error, from the captured worker log:**
+
+```
+messages.7.content.0: Invalid `signature` in `thinking` block. The block is
+bound to a different conversation. This request has content before this block
+that was not present when it was created.
+```
+
+**Two causes, compounding.**
+
+**1. Preemptive generation.** The log showed `using preemptive generation`
+with a `preemptive_lead_time` of 1.11s. The framework starts generating a
+reply from an *interim* transcript and discards it if the final text differs —
+worth about a second of perceived latency when the LLM is stateless.
+
+Ours is not stateless. The core owns the conversation, so a speculative call
+arrives at `respond()` looking exactly like a committed turn: it appends the
+user message, appends the assistant reply, and the discarded turn stays in the
+history. Under barge-in, when interim transcripts change most, this happened
+on essentially every interruption. Two of these ran concurrently — the log
+shows two failures at the same millisecond on the same request id.
+
+**2. Preserved thinking against a prefix this system mutates on purpose.** A
+thinking block's signature binds it to the exact conversation prefix that
+produced it. But the output filter *rewrites what the agent said* (D-035) and
+the tripwire *inserts an operator instruction mid-conversation* (L3). Both
+edit the prefix by design. So preserved reasoning and a rewriting guardrail
+cannot coexist — the 400 was not a race condition, it was the architecture
+disagreeing with itself. Barge-in just made it frequent enough to notice.
+
+**The fix, four parts.**
+
+| | Change | Why |
+|---|---|---|
+| 1 | `preemptive_generation=False` | A speculative call into a stateful core is not safe at any latency saving |
+| 2 | Reasoning blocks stripped before entering stored history | The guardrails guarantee prefix mutation; reasoning that cannot survive them is reasoning this system cannot keep |
+| 3 | `respond()` serialised behind a lock | Two turns interleaving their appends produce a history belonging to neither. Belt and braces, since (1) removes the known caller |
+| 4 | A *different* sentence when the core fails | See below |
+
+**On the fourth.** For two separate calls the agent said "Sorry, I didn't catch
+that" while speech recognition was flawless, and both times the identical
+wording pointed the investigation at the microphone instead of at the core. A
+fallback that disguises its own cause costs more than the call it saves. Core
+failures now say something distinguishable and append `core_error` to
+`guardrail_hits`, so the failure appears in the outcome payload rather than
+only in a log nobody was reading.
+
+**Trade-off accepted.** Disabling preemptive generation gives back roughly a
+second of perceived latency against the M5 budget. Partly offset by the Azure
+voice switch, which returned 571 ms (D-046). The correct long-term fix is a
+core that can accept a speculative turn and roll it back — a snapshot around
+`respond()` — which is a real design change and not a thing to attempt on the
+last day. **Recorded as deferred, not as done.**
+
+**What would change my mind:** if measured p95 with preemptive generation off
+exceeds 1.5s, the snapshot/rollback design stops being optional.
+
+**AI involvement:** AI-originated bug on both counts, AI-originated fix. Found
+only because the human insisted on testing barge-in, and because the worker's
+log was being captured to a file by then rather than scrolling past in a
+terminal. The first instance of this class (D-041) cost a debugging cycle for
+exactly that reason.
+
+**Feeds:** writeup §What broke · writeup §Known limits (speculative turns) ·
+interview Q "show me a call where it broke" · interview Q "what did you defer?"
+
+---
+
+## D-048 — The voice is `empathetic`, which also happens to be the fastest
+**Date:** 2026-11-21 · **Stage:** Voice comparison (B3, round two) · **Status:** Accepted
+**Refines:** D-046
+
+**Decision:** `en-IN-NeerjaNeural` with Azure's `empathetic` prosody at degree
+1.3.
+
+**Why.** The human's verdict on round one: Azure clearly beat Aura-2 on accent,
+but still "sounds robotic." That is the right complaint. A flat read on an
+arrears call is heard as a robocall, and a robocall is hung up on — the first
+two seconds of this call have to earn the right to the next thirty.
+
+Round one had compared *vendors*. It had not compared what a vendor can do with
+the same voice. Querying the voice list rather than assuming turned up both a
+prosody API and a newer HD generation.
+
+**The candidates, measured. Five runs each, time to first audio byte:**
+
+| Voice | Style | TTFB median |
+|---|---|---|
+| `en-IN-NeerjaNeural` | **empathetic** | **281 ms** |
+| `en-IN-NeerjaNeural` | — (round one default) | 302 ms |
+| `en-IN-NeerjaIndicNeural` | — | 308 ms |
+| `en-IN-Priya:MAI-Voice-2.1-Flash` | — | 597 ms |
+| `hi-IN-Harper:MAI-Voice-2.1` | customer_call_center | 1098 ms |
+| `en-IN-Priya:MAI-Voice-2.1` (HD) | — | 1157 ms |
+
+The warmest option is also the fastest, by a hair. Prosody is applied in the
+same synthesis pass, so it is free; the HD voices are a different and slower
+model.
+
+**Two near-misses worth recording,** because both looked better on paper:
+
+- `en-IN-Priya:MAI-Voice-2.1` — the newest HD generation, and the agent is
+  *named* Priya, which was tempting. 1157 ms is a quarter of the entire turn
+  budget for a naming coincidence. Rejected on the number.
+- `hi-IN-Harper:MAI-Voice-2.1` ships a `customer_call_center` prosody,
+  literally built for this. Wrong locale for English output and 1098 ms.
+  Recorded as the thing to test first if the deployment ever moves to Hindi
+  output.
+
+**Trade-off accepted:** `empathetic` on a collections call is a deliberate
+choice that could read as insincere — sympathy from the party asking for money
+is not automatically welcome. Degree is set at 1.3 rather than the 2.0 maximum
+for that reason. This is a judgement about tone that a latency number cannot
+settle, and it is the human's call after listening, not mine.
+
+**What would change my mind:** a listener finding it patronising. The clips
+exist so that is decided by ear.
+
+**Evidence:** 30 clips across 10 voice/style combinations in
+`results/voice_ab/`, three lines each — identity check, rupee amount with a
+date, payment rails with a policy figure.
+
+**AI involvement:** AI proposed, overridden, twice over. I shipped Aura-2 with
+a known accent gap (D-005/D-014), then shipped plain Neerja and called the
+voice question closed. Both times the human listened and said it was not good
+enough. Both times they were right, and both times the measurement that
+justified the fix only got run because they pushed.
+
+**Feeds:** writeup §Stack (why this voice) · writeup §Where I overrode the AI ·
+interview Q "why this voice?"
+
+---
+
+## D-049 — The agent asks before it hangs up
+**Date:** 2026-11-21 · **Stage:** Live call, call termination · **Status:** Accepted
+**Refines:** D-044
+
+**Decision:** Logging the outcome no longer ends the call. The agent confirms
+what was agreed, asks whether there is anything else, answers whatever comes
+back under the same rules, and calls a new `end_call` tool once the customer
+declines.
+
+**Why.** D-044 made `log_outcome` hang up, and flagged exactly this as the
+failure mode to watch: a premature log cuts the customer off. The human's
+proposal — ask first — is better than the mitigation I had planned, because it
+fixes the cause rather than softening the symptom. Two events were conflated:
+the bank's business being finished, and the customer being finished. Hanging up
+the moment a promise to pay is captured is abrupt on a call that was already
+unwelcome, and it denies the customer the one question they had in their head.
+
+It also turns out to be free on the compliance side, which was my objection in
+D-044. The extra turns run inside the same guardrails as every other turn — the
+live test asked about payment rails after the outcome was logged and got a
+correctly scoped answer.
+
+**The ceiling stays, in two layers.** `end_call` is a model decision and models
+forget: if the outcome is logged and `MAX_TURNS_AFTER_OUTCOME` (4) turns pass
+without `end_call`, the call closes anyway and appends `close_not_confirmed` to
+`guardrail_hits` so the lapse is visible in the data. The 240s wall clock from
+D-044 sits behind that.
+
+**Alternatives considered**
+
+| Option | Pro | Con | Why not |
+|---|---|---|---|
+| Keep D-044: hang up on `log_outcome` | One decision, deterministic | Cuts the customer off mid-thought; the premature-log failure stays live | Superseded |
+| Deterministic yes/no classifier on the closing turn | No model decision to get wrong | "nahi", "bas itna hi", "theek hai" and "haan" in one call — a regex here would be worse than the model | Rejected |
+| Fixed turn budget after the outcome, no question | Trivial | Still hangs up on someone mid-sentence | Rejected; kept only as the backstop |
+
+**Trade-off accepted:** calls get longer, against M4's 2-3 minute target. The
+closing exchange costs roughly two turns. Measured against a brief that asks
+for a 2-3 minute call, that is affordable; if it stops being affordable the
+answer is a tighter closing question, not removing it.
+
+**AI involvement:** Human-originated, and better than my plan. I had written
+the mitigation as "put it behind a confirmation turn *if* a premature hang-up
+shows up in testing" — waiting for a customer to be cut off before fixing a
+thing I had already identified. The human simply asked for it up front.
+
+**Feeds:** writeup §What I changed after testing · writeup §Where I overrode
+the AI (reverse) · interview Q "how do you bound a call?"
+
+---
+
+## D-050 — The agent could not answer "how do I pay?"
+**Date:** 2026-11-21 · **Stage:** Live call, closing sequence · **Status:** Accepted
+
+**Decision:** `accepted_payment_modes` is added to the account context, and the
+prompt permits stating two or three rails plus the two-working-day reflection
+time without verification.
+
+**Why.** Found in the live test of the D-049 closing sequence. Asked "UPI
+chalega? How do I pay?", the agent said it did not have payment options and
+sent the customer to the helpline.
+
+That was *correct* behaviour — it genuinely did not know, and it deflected
+rather than inventing. `KNOWN_PAYMENT_MODES` existed in `policy.py` but was
+only ever used for speech-recognition keyterms and for validating a captured
+outcome. It never reached the model.
+
+But it is bad product. On a collections call "how do I pay" is the single most
+useful sentence available, it is the question a cooperative customer actually
+asks, and the answer is neither customer-specific nor sensitive. An agent that
+cannot answer it is a worse collector for no compliance benefit.
+
+**Worth noting what this was not.** The deflection was a guardrail working as
+designed: deny by default, send to a human when unsure. The bug was in what the
+agent was *allowed to know*, not in how it behaved when it did not know. Those
+are different defects and the second one is the expensive kind — this one was
+two lines.
+
+**One follow-on, found immediately.** With the list available the agent read out
+all eight rails in one breath, across two paragraphs. Correct and unspeakable.
+The prompt now says to name two or three and to confirm the customer's own
+choice if they name one — "UPI, NEFT or net banking" is what a person says.
+
+**Trade-off accepted:** one more fact the agent can state unverified. It is
+issuer-level product information, identical for every customer, so it carries
+no disclosure risk — unlike anything in `protected_amounts`.
+
+**AI involvement:** AI proposed, accepted. Surfaced only because the closing
+sequence was tested with a customer who asked a real question rather than
+simply agreeing — the eval scenarios had never asked how to pay.
+
+**Feeds:** writeup §What I changed after testing · writeup §Failure taxonomy
+(a gap no scenario covered)

@@ -119,6 +119,31 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "end_call",
+        "description": (
+            "Hang up. Call this only after you have logged the outcome, asked "
+            "the customer whether there is anything else they wanted to ask, "
+            "and they have said there is not. Never call it in the same turn "
+            "as log_outcome, and never while a question of theirs is "
+            "unanswered."
+        ),
+        "strict": True,
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "reason": {
+                    "type": "string",
+                    "description": (
+                        "Briefly, why the call is ending now, e.g. 'customer "
+                        "confirmed nothing further'."
+                    ),
+                },
+            },
+            "required": ["reason"],
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "log_outcome",
         "description": (
             "Record the result of the call. Exactly one call per conversation, "
@@ -220,6 +245,11 @@ class ToolRegistry:
         return result
 
     # -- handlers ---------------------------------------------------------
+
+    def _tool_end_call(self, reason: str) -> dict[str, Any]:
+        """The customer has nothing further. Close the line."""
+        self.state.call_closed = True
+        return {"ok": True, "ended": True, "reason": reason}
 
     def _tool_get_account_context(self) -> dict[str, Any]:
         return account_context(self.state)

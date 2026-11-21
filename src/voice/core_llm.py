@@ -79,20 +79,32 @@ class _CoreStream(llm.LLMStream):
             # by the API anyway.
             return
 
+        failed = False
         try:
             # The core is synchronous. Running it inline would block the event
             # loop and stall audio for every other participant.
             turn = await asyncio.to_thread(agent.respond, said)
         except Exception:
-            logger.exception("agent core failed on a turn")
+            logger.exception("agent core failed on a turn: %r", said)
             turn = None
+            failed = True
 
         if timing is not None:
             timing.mark("llm_first_token")
 
-        text = (turn.text if turn else "") or (
-            "Sorry, I didn't catch that. Could you say it again?"
-        )
+        if turn is not None and turn.text:
+            text = turn.text
+        elif failed:
+            # Deliberately *not* the same sentence as a transcription failure.
+            # For two calls the agent said "Sorry, I didn't catch that" while
+            # the transcriber was working perfectly, and the identical wording
+            # sent the investigation at speech recognition instead of at the
+            # core. A fallback that disguises its own cause costs more than the
+            # call it saves. See D-041, D-047.
+            agent.state.guardrail_hits.append("core_error")
+            text = "Sorry, I'm having trouble on my end. Could you say that once more?"
+        else:
+            text = "Sorry, I didn't catch that. Could you say it again?"
 
         if turn is not None:
             if turn.forced_transfer:

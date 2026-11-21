@@ -36,8 +36,25 @@ LINES = [
     "The late fee is seven hundred and fifty rupees.",
 ]
 
-DEEPGRAM_VOICES = ["aura-2-thalia-en", "aura-2-asteria-en"]
-AZURE_VOICES = ["en-IN-NeerjaNeural", "en-IN-PrabhatNeural", "en-IN-AnanyaNeural"]
+DEEPGRAM_VOICES = ["aura-2-thalia-en"]
+
+# (voice, style). A plain neural voice reads a collections line flatly, which
+# on a debt call registers as a robocall. Azure exposes prosody styles on some
+# voices and a newer HD generation on others, so the warmth question is
+# answerable by listening rather than by argument.
+AZURE_VOICES: list[tuple[str, str | None]] = [
+    ("en-IN-NeerjaNeural", None),            # the current default, for reference
+    ("en-IN-NeerjaNeural", "empathetic"),    # the obvious candidate for arrears
+    ("en-IN-NeerjaNeural", "cheerful"),      # probably wrong tone, worth hearing
+    ("en-IN-Priya:MAI-Voice-2.1", None),     # newest HD generation
+    ("en-IN-Priya:MAI-Voice-2.1-Flash", None),
+    ("en-IN-NeerjaIndicNeural", None),       # more Indic pronunciation
+    ("en-IN-RehaanNeural", None),            # male alternative
+    # Locale is hi-IN but the style list is the reason: Microsoft ships a
+    # `customer_call_center` prosody on this one. English text, Indian voice.
+    ("hi-IN-Harper:MAI-Voice-2.1", "customer_call_center"),
+    ("hi-IN-Harper:MAI-Voice-2.1", "agent"),
+]
 
 
 def deepgram_speak(text: str, voice: str, path: Path) -> None:
@@ -55,12 +72,24 @@ def deepgram_speak(text: str, voice: str, path: Path) -> None:
     path.write_bytes(r.content)
 
 
-def azure_speak(text: str, voice: str, path: Path) -> None:
-    region = os.getenv("AZURE_SPEECH_REGION", "centralindia")
-    ssml = (
-        f'<speak version="1.0" xml:lang="en-IN">'
-        f'<voice name="{voice}">{text}</voice></speak>'
+def azure_ssml(text: str, voice: str, style: str | None = None) -> str:
+    inner = text
+    if style:
+        inner = (
+            f'<mstts:express-as style="{style}" styledegree="1.3">{text}'
+            f"</mstts:express-as>"
+        )
+    return (
+        '<speak version="1.0" xml:lang="en-IN" '
+        'xmlns="http://www.w3.org/2001/10/synthesis" '
+        'xmlns:mstts="https://www.w3.org/2001/mstts">'
+        f'<voice name="{voice}">{inner}</voice></speak>'
     )
+
+
+def azure_speak(text: str, voice: str, path: Path, style: str | None = None) -> None:
+    region = os.getenv("AZURE_SPEECH_REGION", "centralindia")
+    ssml = azure_ssml(text, voice, style)
     r = httpx.post(
         f"https://{region}.tts.speech.microsoft.com/cognitiveservices/v1",
         headers={
@@ -81,19 +110,27 @@ def main() -> int:
     OUT.mkdir(parents=True, exist_ok=True)
     manifest: list[dict] = []
 
-    jobs = [("deepgram", v, deepgram_speak) for v in DEEPGRAM_VOICES]
-    jobs += [("azure", v, azure_speak) for v in AZURE_VOICES]
+    jobs: list[tuple[str, str, str | None]] = [
+        ("deepgram", v, None) for v in DEEPGRAM_VOICES
+    ]
+    jobs += [("azure", v, st) for v, st in AZURE_VOICES]
 
-    for provider, voice, fn in jobs:
+    for provider, voice, style in jobs:
+        label = f"{voice}-{style}" if style else voice
+        label = label.replace(":", "_")
         for i, line in enumerate(LINES, start=1):
-            path = OUT / f"{provider}-{voice}-{i}.wav"
+            path = OUT / f"{provider}-{label}-{i}.wav"
             try:
-                fn(line, voice, path)
+                if provider == "azure":
+                    azure_speak(line, voice, path, style)
+                else:
+                    deepgram_speak(line, voice, path)
                 size = path.stat().st_size
                 print(f"  ok   {path.name:42} {size // 1024:4} KB")
                 manifest.append(
-                    {"provider": provider, "voice": voice, "line_no": i,
-                     "line": line, "file": str(path), "bytes": size}
+                    {"provider": provider, "voice": voice, "style": style,
+                     "line_no": i, "line": line, "file": str(path),
+                     "bytes": size}
                 )
             except Exception as exc:
                 detail = getattr(getattr(exc, "response", None), "text", "")

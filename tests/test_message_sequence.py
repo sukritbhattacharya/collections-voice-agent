@@ -110,3 +110,71 @@ def test_validator_rejects_the_shape_that_shipped():
     ]
     with pytest.raises(AssertionError, match="must follow a 'user' message"):
         assert_sendable(bad)
+
+
+# -- reasoning blocks must not enter the stored history ---------------------
+#
+# The signature on a thinking block is bound to the conversation prefix that
+# produced it. This agent rewrites its own prefix whenever the output filter
+# fires, so a preserved block fails on the next turn. See D-047.
+
+
+class _Block:
+    def __init__(self, type_: str, **kw):
+        self.type = type_
+        for k, v in kw.items():
+            setattr(self, k, v)
+
+
+def test_thinking_blocks_are_stripped():
+    from src.core.agent_core import _without_thinking
+
+    blocks = [
+        _Block("thinking", thinking="let me check the balance", signature="abc"),
+        _Block("text", text="Your minimum due is pending."),
+        _Block("redacted_thinking", data="..."),
+    ]
+    kept = _without_thinking(blocks)
+    assert [b.type for b in kept] == ["text"]
+
+
+def test_stored_history_carries_no_reasoning_blocks():
+    agent = _agent(["Thanks for confirming."])
+    agent.open_call()
+    agent.respond("Yes, speaking.")
+    for msg in agent.messages:
+        content = msg.get("content")
+        if not isinstance(content, list):
+            continue
+        for block in content:
+            assert getattr(block, "type", None) not in ("thinking", "redacted_thinking"), (
+                "a reasoning block reached the stored history; it will 400 once "
+                "the output filter rewrites an earlier turn"
+            )
+
+
+def test_respond_is_serialised():
+    """Preemptive generation can call the core from more than one thread."""
+    import threading
+
+    agent = _agent(["one", "two", "three", "four", "five", "six"])
+    agent.open_call()
+    errors: list[BaseException] = []
+
+    def speak(text: str) -> None:
+        try:
+            agent.respond(text)
+        except BaseException as exc:  # noqa: BLE001
+            errors.append(exc)
+
+    threads = [
+        threading.Thread(target=speak, args=(f"utterance {i}",)) for i in range(4)
+    ]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert not errors, f"concurrent turns raised: {errors}"
+    # Whatever the interleaving, the history must still be one the API accepts.
+    assert_sendable(agent.messages)

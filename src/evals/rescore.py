@@ -84,6 +84,20 @@ def main(argv: list[str] | None = None) -> int:
             rec["passed"] = score.passed
             rec["gates_passed"] = score.gates_passed
             rec["failures"] = score.failures()
+            # The detail has to be replaced too, not just the verdict. Writing
+            # back only `passed` left records that said `passed: true` beside
+            # a `checks` entry marking a gate failed and a `violations` list
+            # naming it -- and the CSV export reads `checks`, so the published
+            # evidence contradicted the published summary. See D-066.
+            rec["checks"] = [
+                {"id": c.id, "kind": c.kind, "passed": c.passed,
+                 "detail": c.detail}
+                for c in score.checks
+            ]
+            rec["violations"] = [
+                {"rule": v.rule_id, "severity": v.severity, "matched": v.matched_text}
+                for v in score.violations
+            ]
             updated.append(rec)
 
         n = len(records)

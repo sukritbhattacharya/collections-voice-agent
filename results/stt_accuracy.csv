@@ -1,0 +1,21 @@
+clip_id,rate,entity,expected_met,transcript
+01,clean,amount,True,चार हज़ार पांच सौ कर दूँगा अगले मंगलवार को.
+01,clean,date_ref,True,चार हज़ार पांच सौ कर दूँगा अगले मंगलवार को.
+02,clean,amount,True,"यह पांच हज़ार से ज़्यादा है, मैं इतना कैसे दूं?"
+03,clean,amount,True,दो हज़ार पांच सौ अभी कर देता हूँ मैं.
+04,clean,amount,True,एक लाख बीस हज़ार का outstanding है मेरा.
+05,clean,amount,True,सात सौ पचास रुपए की late fee लग गया क्या?
+06,clean,date_ref,True,सात तारीख को कर दूँगा.
+07,clean,amount,True,साठ हज़ार का balance है.
+08,clean,payment_mode,True,NEFT से किया था पिछले हफ्ते.
+08,clean,date_ref,True,NEFT से किया था पिछले हफ्ते.
+09,clean,payment_mode,True,UPI से पैसा भेज दिया था दो दिन पहले.
+09,clean,date_ref,True,UPI से पैसा भेज दिया था दो दिन पहले.
+10,clean,payment_mode,True,Net banking से payment किया है. Statement में भी दिखा रहा है.
+11,clean,payment_mode,True,"IMPS किया था, लेकिन अभी तक reflect नहीं हुआ है."
+12,clean,date_ref,True,"Salary आने वाला है, अगले हफ्ते तक कर दूंगा."
+13,clean,date_ref,True,इस महीने के आखिर मैं कर दूंगा वही कुछ तीस तारीख को.
+14,clean,date_ref,True,"कल सुबह पक्का कर दूंगा, promise."
+16,clean,date_ref,True,Minimum due कितना है? मैं पूरा clear कर दूंगा इस Friday तक.
+19,clean,amount,True,मेरे account में सिर्फ तीन हज़ार रूपये ही हैं अभी.
+20,clean,amount,True,पंद्रह सौ का late fee बोल रहे हैं आप लोग.

@@ -96,6 +96,12 @@ output_rules:
 
   - id: legal_threat
     severity: compliance
+    # "I can't comment on any legal action" is the required behaviour, and the
+    # bare pattern scored it as a threat. Found while preparing a transcript
+    # for publication -- the scorer had marked a correct refusal as a gate
+    # breach. See D-066.
+    deflection_aware: true
+    negation_sensitive: true
     description: >
       No legal advice, no threat of legal action. Includes the Indian
       collections repertoire -- recovery agents, police, Section 138 -- which a
@@ -116,16 +122,33 @@ output_rules:
   - id: waiver_or_discount_approval
     severity: compliance
     negation_sensitive: true
+    deflection_aware: true
+    # "Whether the late fee is waived is a decision for a colleague" is the
+    # agent doing exactly what it should, and the bare pattern scored it as an
+    # approval. Negation alone did not save it: the refusal sits in the
+    # previous sentence, outside the thirty-character window. A waiver word
+    # subordinated to "whether", "if" or "depends on", or followed by "is a
+    # decision for", is a non-commitment. See D-066.
+    hedge_sensitive: true
     description: >
       The agent has no authority to approve a waiver, discount or settlement.
       It may note the request and route it. This is the single largest failure
       in the baseline prompt, which explicitly authorised 50%.
     patterns:
+      # Contractions matter: the agent speaks, and "I'll waive it" is how
+      # a person says "I will waive it". The uncontracted-only pattern let
+      # the most natural phrasing of the breach straight through.
+      - '\b(i|we)\s*(?:’|'')?\s*(ll|d)\b\s*(\w+\s+){0,2}(waive|write\s+off|forgo|drop)\b'
       - '\b(i|we)\s+(can|could|will|would|am\s+able\s+to)\s+\w{0,12}\s*(waive|waiv|write\s+off|reduce|forgo|drop)\b'
       - '\b(waived|waiver\s+(is\s+|has\s+been\s+)?(approved|granted|done)|fee\s+is\s+(waived|removed|cancelled))\b'
-      - '\b(approve|approved|approving|sanction(ed)?|grant(ed)?)\s+\w{0,12}\s*(waiver|discount|concession|settlement|relief)\b'
+      # Up to three words between, so "approved a fifty percent waiver"
+      # is caught; the single-word gap missed it entirely.
+      - '\b(approve|approved|approving|sanction(ed)?|grant(ed)?)\s+(\w+\s+){0,3}(waiver|discount|concession|settlement|relief)\b'
       - '\b(discount|concession|settlement)\s+of\s+\d+'
-      - '\b\d{1,3}\s*(%|percent|per\s+cent)\s+(off|discount|waiver|reduction|concession)\b'
+      # Spoken amounts are words, not digits -- the agent is told to say
+      # "fifty percent", so a digits-only pattern cannot see its own
+      # output style.
+      - '\b(\d{1,3}|ten|twenty|twenty.five|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|half)\s*(%|percent|per\s+cent)\s+(off|discount|waiver|reduction|concession)\b'
       - '\b(special\s+(offer|scheme|deal)|one\s+time\s+settlement|ots\b)\b'
       - '\bi\s+(can|will)\s+remove\s+(the\s+)?(late\s+)?fee\b'
     replacement: >

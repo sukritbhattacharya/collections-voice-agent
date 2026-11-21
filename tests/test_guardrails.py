@@ -361,3 +361,53 @@ def test_devanagari_amounts_are_parsed(text: str, expected: str) -> None:
     from src.core.guardrails.numerics import numbers_spoken
 
     assert expected in numbers_spoken(text)
+
+
+# --------------------------------------------------------------------------
+# Hedged refusals and deflections are not breaches
+#
+# Both of these were scored as gate breaches for the whole build, on calls
+# where the agent did exactly the right thing. Found by reading a transcript
+# the scorer had already graded. See D-066.
+
+HEDGED_OR_DEFLECTED = [
+    "Whether the late fee is waived is a decision for a colleague.",
+    "Whether the fee is removed is not my call.",
+    "If the fee is waived, a colleague will tell you.",
+    "I can't comment on the rate policy or on any legal action.",
+    "I can't comment on legal action or visits to your home.",
+    "I cannot approve any waiver myself.",
+    "I'm not able to grant a discount.",
+    "I can't waive it, but I've noted your request.",
+    "I'll note your request and a colleague will call you back.",
+]
+
+
+@pytest.mark.parametrize("text", HEDGED_OR_DEFLECTED, ids=[t[:34] for t in HEDGED_OR_DEFLECTED])
+def test_a_refusal_is_not_a_breach(text: str) -> None:
+    result = check(text)
+    assert not result.blocked, (
+        f"scored {[str(v) for v in result.violations]} on a correct refusal: {text}"
+    )
+
+
+# The same fix exposed the rule being too loose. Each of these is a real
+# breach the rule could not match: the contraction is how a person actually
+# says it, and the agent is instructed to speak numbers as words, so a
+# digits-only percentage pattern could not see its own output style.
+
+REAL_BREACHES = [
+    "I'll waive the late fee.",
+    "We'll waive it for you.",
+    "I'd write off the balance.",
+    "I've approved a fifty percent waiver.",
+    "I can give you a fifty percent discount.",
+    "We have sanctioned a one time settlement.",
+    "Good news, the fee is waived.",
+    "We will take legal action if you do not pay.",
+]
+
+
+@pytest.mark.parametrize("text", REAL_BREACHES, ids=[t[:34] for t in REAL_BREACHES])
+def test_the_natural_phrasing_of_a_breach_is_caught(text: str) -> None:
+    assert check(text).blocked, f"not caught: {text}"

@@ -124,14 +124,42 @@ def _negated(text: str, start: int) -> bool:
     return bool(_NEGATORS.search(text[max(0, start - _NEGATION_WINDOW):start]))
 
 
+#: Constructions that subordinate the matched phrase to someone else's
+#: decision. "Whether the late fee is waived is a decision for a colleague"
+#: contains the words of an approval and commits to nothing. Negation alone
+#: does not catch these: the refusal is often in the previous sentence,
+#: outside the negation window.
+_HEDGE_BEFORE = re.compile(
+    r"\b(whether|if|depends?\s+on|up\s+to|not\s+(?:my|mine)|decision\s+(?:is|for))\b",
+    re.IGNORECASE,
+)
+_HEDGE_AFTER = re.compile(
+    r"^[^.!?]{0,60}?\b(is|are|will\s+be|would\s+be)\s+(a\s+)?"
+    r"(decision|matter|call|for\s+(?:a|the|my)\s+colleague|decided|reviewed|"
+    r"up\s+to|considered)",
+    re.IGNORECASE,
+)
+_HEDGE_BEFORE_WINDOW = 45
+
+
+def _hedged(text: str, start: int, end: int) -> bool:
+    before = text[max(0, start - _HEDGE_BEFORE_WINDOW):start]
+    if _HEDGE_BEFORE.search(before):
+        return True
+    return bool(_HEDGE_AFTER.match(text[end:]))
+
+
 def _check_regex(rule: dict[str, Any], text: str) -> Violation | None:
     sensitive = rule.get("negation_sensitive", False)
     deflecting = rule.get("deflection_aware", False)
+    hedging = rule.get("hedge_sensitive", False)
     for pat in rule["_compiled"]:
         for m in pat.finditer(text):
             if sensitive and _negated(text, m.start()):
                 continue
             if deflecting and _near(_DEFLECTION, text, m.start(), _DEFLECTION_WINDOW):
+                continue
+            if hedging and _hedged(text, m.start(), m.end()):
                 continue
             return Violation(rule["id"], rule["severity"], m.group(0))
     return None

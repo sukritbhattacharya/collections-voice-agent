@@ -509,4 +509,3 @@ re-prompted. The first real cohort will surface more.
 | Three annotated calls | `results/transcripts/` — clean, broken, caught |
 | Recognition accuracy | `results/stt_accuracy.csv` |
 | Voice comparison clips | `results/voice_ab/` — 30 clips, 10 combinations |
-| Live call records | `results/outcomes.jsonl` |

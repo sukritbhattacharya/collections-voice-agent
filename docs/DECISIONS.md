@@ -3187,3 +3187,55 @@ workflow and not the using-it-in-anger workflow.
 
 **Feeds:** README §Personas · interview Q "can it handle a persona we give
 you?"
+
+## D-068 — The CRM sink had nineteen deliveries left, silently
+**Date:** 2026-11-22 · **Stage:** Submission · **Status:** Accepted
+
+**Decision:** `deliver()` logs both outcomes. `check_setup.py` reports how
+much of the webhook endpoint is left and when it expires, and removes its own
+probe afterwards.
+
+**What was wrong.** A free webhook.site URL **accepts 50 requests and is then
+disabled**, and the URL itself **expires a week after creation**. Ours was
+created on 19 November with 31 requests already spent — nineteen left, and
+four days.
+
+Neither limit announces itself. The endpoint simply stops being there: the
+call completes normally, the local mirror is written, `finish()` returns a
+valid outcome, and the only sign that the CRM received nothing is a pane that
+stays empty. `deliver()` logged nothing at all — not on success, not after
+two failed attempts — so the one place the failure could have surfaced said
+nothing either.
+
+On a demo whose whole point is "every call ends with a structured outcome a
+CRM can act on", that is the worst available failure: the claim looks false
+and there is nothing on screen to explain why.
+
+**Found by the human asking whether we might hit the limit.** I had treated
+the sink as infrastructure that either works or does not, and never asked
+what its quota was.
+
+**Two changes, and a third I decided against.**
+- `deliver()` logs the delivery and warns, with the status, when both
+  attempts fail.
+- `check_setup.py` prints `31/50 requests used, URL expires in 4 days`. It
+  POSTs a probe to prove the endpoint accepts traffic and then **deletes the
+  probe**, because a pre-flight check that spends one of fifty requests every
+  time it runs is its own slow leak. The first version of that cleanup looked
+  for the probe immediately and did not find it — webhook.site stores
+  asynchronously — so it silently left the probe behind, which is precisely
+  the bug it was written to prevent. It now retries for about three seconds.
+- Rejected: failing the call when delivery fails. The local mirror is the
+  safety net and a replay is a batch job; losing the conversation because a
+  stand-in CRM is full would be a worse product than losing the webhook.
+
+**Trade-off accepted:** the headroom check is specific to webhook.site, which
+is a stand-in. Against a real CRM it is dead code. It is worth it because the
+stand-in is what the demo runs on, and the check pays for itself the first
+time it stops a silent failure in front of an audience.
+
+**AI involvement:** Human-raised, AI-measured and AI-fixed. The quota was
+knowable from day one and I never looked; "it returned 200" was treated as
+proof the sink was healthy, which is true only until the fiftieth request.
+
+**Feeds:** writeup §What broke (instrument failures) · README §Configuration

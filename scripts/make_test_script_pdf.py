@@ -15,7 +15,7 @@ import sys
 from pathlib import Path
 
 from reportlab.lib import colors
-from reportlab.lib.enums import TA_LEFT
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
@@ -48,6 +48,39 @@ LINE = colors.HexColor("#dde2e9")
 BAND = colors.HexColor("#eef1f5")
 ACCENT = colors.HexColor("#1b6ef3")
 FAIL = colors.HexColor("#c3362b")
+#: The rule down the left of a quotation.
+QUOTEBAR = colors.HexColor("#c8cdd6")
+
+
+#: Helvetica Neue where the machine has it. The built-in Helvetica is a
+#: metric clone with coarser spacing and no Medium weight; the difference is
+#: most visible in headings and in a title set large. Falls back silently to
+#: the built-ins, so the script still runs on a machine without it.
+FAMILY = {"body": "Helvetica", "bold": "Helvetica-Bold",
+          "italic": "Helvetica-Oblique", "medium": "Helvetica-Bold",
+          "light": "Helvetica"}
+
+
+def register_family() -> None:
+    src = "/System/Library/Fonts/HelveticaNeue.ttc"
+    if not Path(src).exists():
+        return
+    faces = {"body": 0, "bold": 1, "italic": 2, "medium": 10, "light": 7}
+    try:
+        from reportlab.pdfbase import pdfmetrics
+        from reportlab.pdfbase.ttfonts import TTFont
+
+        for role, index in faces.items():
+            name = f"HN-{role}"
+            pdfmetrics.registerFont(TTFont(name, src, subfontIndex=index))
+            FAMILY[role] = name
+        from reportlab.pdfbase.pdfmetrics import registerFontFamily
+
+        registerFontFamily(FAMILY["body"], normal=FAMILY["body"],
+                           bold=FAMILY["bold"], italic=FAMILY["italic"],
+                           boldItalic=FAMILY["bold"])
+    except Exception:
+        pass
 
 
 #: Type scale. The writeup is held to a page budget, so it is set a little
@@ -57,32 +90,48 @@ SCALE = 1.0
 
 
 def styles() -> dict[str, ParagraphStyle]:
+    register_family()
     base = getSampleStyleSheet()["BodyText"]
     s: dict[str, ParagraphStyle] = {}
     s["body"] = ParagraphStyle(
-        "body", parent=base, fontName="Helvetica", fontSize=9.6 * SCALE, leading=14.2 * SCALE,
+        "body", parent=base, fontName=FAMILY["body"], fontSize=9.6 * SCALE, leading=14.2 * SCALE,
         textColor=INK, alignment=TA_LEFT, spaceAfter=6 * SCALE,
     )
+    s["title"] = ParagraphStyle(
+        "title", parent=s["body"], fontName=FAMILY["bold"],
+        fontSize=25 * SCALE, leading=29 * SCALE, alignment=TA_CENTER,
+        spaceBefore=0, spaceAfter=11 * SCALE, textColor=INK,
+    )
+    s["byline"] = ParagraphStyle(
+        "byline", parent=s["body"], fontName=FAMILY["medium"],
+        fontSize=10.4 * SCALE, leading=14 * SCALE, alignment=TA_CENTER,
+        textColor=INK, spaceAfter=3 * SCALE,
+    )
+    s["byline_sub"] = ParagraphStyle(
+        "byline_sub", parent=s["body"], fontName=FAMILY["body"],
+        fontSize=8.8 * SCALE, leading=12.4 * SCALE, alignment=TA_CENTER,
+        textColor=DIM, spaceAfter=1 * SCALE,
+    )
     s["h1"] = ParagraphStyle(
-        "h1", parent=s["body"], fontName="Helvetica-Bold", fontSize=20 * SCALE,
+        "h1", parent=s["body"], fontName=FAMILY["bold"], fontSize=20 * SCALE,
         leading=24 * SCALE, spaceBefore=0 * SCALE, spaceAfter=10 * SCALE,
     )
     s["h2"] = ParagraphStyle(
-        "h2", parent=s["body"], fontName="Helvetica-Bold", fontSize=13.5 * SCALE,
+        "h2", parent=s["body"], fontName=FAMILY["bold"], fontSize=13.5 * SCALE,
         leading=17 * SCALE, spaceBefore=16 * SCALE, spaceAfter=6 * SCALE,
     )
     s["h3"] = ParagraphStyle(
-        "h3", parent=s["body"], fontName="Helvetica-Bold", fontSize=11.2 * SCALE,
+        "h3", parent=s["body"], fontName=FAMILY["bold"], fontSize=11.2 * SCALE,
         leading=14 * SCALE, spaceBefore=13 * SCALE, spaceAfter=4 * SCALE, textColor=ACCENT,
     )
     s["cell"] = ParagraphStyle(
         "cell", parent=s["body"], fontSize=8.6 * SCALE, leading=11.6 * SCALE, spaceAfter=0 * SCALE,
     )
     s["cellhead"] = ParagraphStyle(
-        "cellhead", parent=s["cell"], fontName="Helvetica-Bold", textColor=DIM,
+        "cellhead", parent=s["cell"], fontName=FAMILY["bold"], textColor=DIM,
     )
     s["quote"] = ParagraphStyle(
-        "quote", parent=s["body"], fontName="Helvetica-Oblique", fontSize=9.4 * SCALE,
+        "quote", parent=s["body"], fontName=FAMILY["italic"], fontSize=9.4 * SCALE,
         leading=14 * SCALE, leftIndent=10, textColor=DIM, spaceBefore=2 * SCALE, spaceAfter=8 * SCALE,
         borderPadding=0,
     )
@@ -118,17 +167,33 @@ def split_row(line: str) -> list[str]:
 
 def build_table(rows: list[list[str]], st: dict) -> Table:
     head, *body = rows
-    data = [[Paragraph(inline(c), st["cellhead"]) for c in head]]
+
+    # A table written with an empty header row -- `| | |` -- has no column
+    # names, usually because the left column *is* the label. Dropping the
+    # empty row is right; keeping it and banding the first real row as a
+    # header, which is what happened, reads as though the data starts one
+    # row late.
+    headed = any(c.strip() for c in head)
+    if not headed:
+        body = [head] + body if any(c.strip() for c in head) else body
+        head = []
+
+    data = []
+    if headed:
+        data.append([Paragraph(inline(c), st["cellhead"]) for c in head])
     for r in body:
         data.append([Paragraph(inline(c), st["cell"]) for c in r])
 
-    table = Table(data, repeatRows=1, hAlign="LEFT")
+    table = Table(data, repeatRows=1 if headed else 0, hAlign="LEFT")
+    band = [
+        ("BACKGROUND", (0, 0), (-1, 0), BAND),
+        ("LINEBELOW", (0, 0), (-1, 0), 0.6, LINE),
+    ] if headed else []
     table.setStyle(
         TableStyle(
             [
-                ("BACKGROUND", (0, 0), (-1, 0), BAND),
-                ("LINEBELOW", (0, 0), (-1, 0), 0.6, LINE),
-                ("INNERGRID", (0, 1), (-1, -1), 0.3, LINE),
+                *band,
+                ("INNERGRID", (0, 1 if headed else 0), (-1, -1), 0.3, LINE),
                 ("BOX", (0, 0), (-1, -1), 0.5, LINE),
                 ("VALIGN", (0, 0), (-1, -1), "TOP"),
                 ("TOPPADDING", (0, 0), (-1, -1), 5),
@@ -190,7 +255,12 @@ def convert(md: str, st: dict) -> list:
             rows = []
             while i < len(lines) and lines[i].strip().startswith("|"):
                 row = lines[i].strip()
-                if not re.fullmatch(r"\|[\s:\-|]+\|", row):
+                # A separator row must contain a dash. Without that test
+                # `| | |` -- an intentionally empty header -- matched as a
+                # separator and was dropped, which silently promoted the
+                # first row of data into the header band.
+                is_separator = bool(re.fullmatch(r"\|[\s:\-|]+\|", row)) and "-" in row
+                if not is_separator:
                     rows.append(split_row(row))
                 i += 1
             if rows:
@@ -213,6 +283,39 @@ def convert(md: str, st: dict) -> list:
             flush_bullets()
             level = len(m.group(1))
             text = inline(m.group(2))
+            if level == 1 and not story:
+                # The document title. Centred and given room, so the page
+                # opens on one thing rather than on a crowded stack. The two
+                # credit lines that follow are consumed here and set as their
+                # own centred lines -- run together they read as one cramped
+                # sentence, which is how they were.
+                story.append(Spacer(1, 18 * SCALE))
+                story.append(Paragraph(text, st["title"]))
+                i += 1
+                while i < len(lines) and not lines[i].strip():
+                    i += 1
+                credits = []
+                while i < len(lines) and lines[i].strip() and not lines[i].startswith("#"):
+                    if lines[i].strip() == "---":
+                        break
+                    credits.append(lines[i].strip())
+                    i += 1
+                for n, credit in enumerate(credits):
+                    story.append(Paragraph(
+                        inline(credit),
+                        st["byline"] if n == 0 else st["byline_sub"],
+                    ))
+                story.append(Spacer(1, 7 * SCALE))
+                story.append(HRFlowable(
+                    width="100%", thickness=0.6, color=LINE,
+                    spaceBefore=0, spaceAfter=15 * SCALE,
+                ))
+                # The rule above replaces the markdown one that follows.
+                while i < len(lines) and not lines[i].strip():
+                    i += 1
+                if i < len(lines) and lines[i].strip() == "---":
+                    i += 1
+                continue
             key = {1: "h1", 2: "h2", 3: "h3"}.get(level, "h3")
             story.append(Paragraph(text, st[key]))
             i += 1
@@ -226,7 +329,22 @@ def convert(md: str, st: dict) -> list:
             while i < len(lines) and lines[i].strip().startswith(">"):
                 quote.append(lines[i].strip().lstrip("> ").strip())
                 i += 1
-            story.append(Paragraph(inline(" ".join(quote)), st["quote"]))
+            # A rule down the left edge, the way a quoted line is set almost
+            # everywhere else. Indentation alone leaves a quotation looking
+            # like a stray indented paragraph.
+            bar = Table(
+                [[Paragraph(inline(" ".join(quote)), st["quote"])]],
+                colWidths=["100%"], hAlign="LEFT",
+            )
+            bar.setStyle(TableStyle([
+                ("LINEBEFORE", (0, 0), (0, -1), 2.2, QUOTEBAR),
+                ("LEFTPADDING", (0, 0), (-1, -1), 11),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                ("TOPPADDING", (0, 0), (-1, -1), 2),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ]))
+            story.append(bar)
+            story.append(Spacer(1, 6 * SCALE))
             continue
 
         # Bullets

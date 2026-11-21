@@ -12,6 +12,7 @@ here, loudly, where a test can see it.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import uuid
 from datetime import date, datetime, timedelta, timezone
@@ -195,6 +196,9 @@ def _mirror_locally(outcome: CallOutcome) -> None:
         fh.write(json.dumps(outcome.model_dump(mode="json")) + "\n")
 
 
+logger = logging.getLogger(__name__)
+
+
 async def deliver(outcome: CallOutcome, *, webhook_url: str | None = None) -> bool:
     """Send the outcome onward. Returns whether the webhook accepted it.
 
@@ -211,14 +215,29 @@ async def deliver(outcome: CallOutcome, *, webhook_url: str | None = None) -> bo
         return False
 
     payload = outcome.to_payload()
+    last: str = "no response"
     async with httpx.AsyncClient(timeout=5.0) as client:
         for attempt in (1, 2):
             try:
                 resp = await client.post(url, json=payload)
                 if resp.status_code < 400:
+                    logger.info(
+                        "outcome %s delivered (%s)", outcome.call_id, resp.status_code
+                    )
                     return True
-            except httpx.HTTPError:
-                pass
+                last = f"HTTP {resp.status_code}"
+            except httpx.HTTPError as exc:
+                last = f"{type(exc).__name__}"
             if attempt == 1:
                 continue
+
+    # Said out loud, because the failure is otherwise invisible: the call ends
+    # normally, the local mirror is written, and the only sign that the CRM
+    # never received anything is an empty pane that nobody can explain. A free
+    # webhook endpoint that has hit its request cap or expired fails exactly
+    # this way. See D-068.
+    logger.warning(
+        "outcome %s NOT delivered after two attempts (%s); it is in the local "
+        "mirror only", outcome.call_id, last,
+    )
     return False

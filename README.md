@@ -282,7 +282,7 @@ looks like a backend fault:
 
 ## Outcome schema
 
-Delivered to `OUTCOME_WEBHOOK_URL` and mirrored to `results/outcomes.jsonl`.
+Delivered to `OUTCOME_WEBHOOK_URL` and mirrored to `results/outcomes.jsonl`. That mirror is deliberately not committed: it is whatever calls happen to have been placed on one machine, so a clone starts with an empty dashboard and fills it with your own calls. The scored evaluation runs are committed, because those are evidence rather than scratch.
 
 ```json
 {

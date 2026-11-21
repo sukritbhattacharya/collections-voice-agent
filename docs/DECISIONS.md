@@ -2860,3 +2860,36 @@ heard it.
 
 **Feeds:** writeup §What broke · writeup §Guardrails vs prompts · interview Q
 "why this voice?" (the voice was never the problem here)
+
+## D-063 — The setup check printed a personal email address
+**Date:** 2026-11-21 · **Stage:** Documentation · **Status:** Accepted
+
+**Decision:** `scripts/check_setup.py` reports the number of Deepgram projects
+rather than the project's name.
+
+**Why.** Deepgram names a default project after the account holder's email
+address, so the check printed:
+
+```
+[ ok ] Deepgram    authenticated — <someone>@gmail.com's Project
+```
+
+The script's whole purpose is to be run in a terminal before a demo, which is
+precisely a terminal someone is sharing on a screen. A project count proves
+the key works just as well and names nobody.
+
+Found while verifying that the commands in the README actually run — not while
+looking for it. The repository is about to be public, so a sweep of every
+tracked file for personal data and credentials went with it: `.env` ignored
+and untracked, no API key in history, nothing personal in a tracked file.
+
+**Trade-off accepted:** marginally less useful when someone has several
+projects and wants to know which key is loaded. Printing the project *id*
+prefix would restore that without the name; not worth it until someone asks.
+
+**AI involvement:** AI-found. Worth noting that I had run this script several
+times today and read its output each time without registering that a personal
+email address was in it — the same blindness as reading "ending in 8842" all
+day without hearing it.
+
+**Feeds:** README §Getting started · writeup §What broke

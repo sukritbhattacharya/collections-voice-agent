@@ -56,8 +56,17 @@ def check_deepgram() -> bool:
         )
         if resp.status_code == 200:
             projects = resp.json().get("projects", [])
-            name = projects[0]["name"] if projects else "no project"
-            row("Deepgram", OK, f"authenticated — {name}")
+            # Deliberately not the project name. Deepgram names a default
+            # project after the account holder's email address, so printing it
+            # puts a personal email on screen -- in a terminal that gets
+            # screen-shared, and in any log or screenshot taken of this
+            # output. The count proves the key works just as well. See D-063.
+            detail = (
+                f"authenticated, {len(projects)} project"
+                f"{'s' if len(projects) != 1 else ''}"
+                if projects else "authenticated, no project found"
+            )
+            row("Deepgram", OK, detail)
             return True
         row("Deepgram", FAIL, f"HTTP {resp.status_code} — check the key")
         return False

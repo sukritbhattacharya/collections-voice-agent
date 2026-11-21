@@ -221,6 +221,11 @@ class CallState:
     # event: the business of the call being finished does not mean the
     # customer is. See D-049.
     call_closed: bool = False
+    #: Speech-recognition artefacts repaired before the model read them,
+    #: as `raw -> repaired`. Kept separate from `guardrail_hits`: a misheard
+    #: syllable is an input-quality event, not a compliance breach, and
+    #: folding it in would corrupt the gate counts. See D-051.
+    transcription_repairs: list[str] = field(default_factory=list)
 
     MAX_OTP_ATTEMPTS: int = 3
 

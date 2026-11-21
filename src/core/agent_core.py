@@ -29,6 +29,7 @@ from typing import Any, Protocol
 
 from .guardrails import input_tripwire
 from .guardrails.numerics import numbers_spoken
+from .guardrails.transcription import repair as repair_transcription
 from .guardrails.output_filter import check as filter_output
 from .outcomes import CallOutcome, OutcomeType, TransferReason, deliver
 from .policy import (
@@ -280,17 +281,27 @@ class CollectionsAgent:
         with self._turn_lock:
             if not customer_text or not customer_text.strip():
                 raise ValueError("customer_text is empty; treat silence as a hang-up")
-            self.transcript.append({
+
+            # Recognition artefacts are repaired before the model reads the
+            # turn, but the transcript keeps what recognition actually
+            # produced. See D-051 and guardrails/transcription.py.
+            heard, repair_note = repair_transcription(customer_text)
+            entry: dict[str, Any] = {
                 "role": "customer",
                 "text": customer_text,
                 "otp_verified": self.state.otp_verified,
-            })
-            self.messages.append({"role": "user", "content": customer_text})
-            self.customer_stated |= numbers_spoken(customer_text)
+            }
+            if repair_note:
+                entry["repaired_to"] = heard
+                self.state.transcription_repairs.append(repair_note)
+            self.transcript.append(entry)
+
+            self.messages.append({"role": "user", "content": heard})
+            self.customer_stated |= numbers_spoken(heard)
 
             forced: str | None = None
             if self.config.tripwire:
-                hit = input_tripwire.scan(customer_text)
+                hit = input_tripwire.scan(heard)
                 if hit and not self.state.transfer_requested:
                     forced = hit.reason
                     self.state.transfer_requested = True

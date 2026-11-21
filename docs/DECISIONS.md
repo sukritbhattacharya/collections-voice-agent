@@ -2017,3 +2017,77 @@ simply agreeing — the eval scenarios had never asked how to pay.
 
 **Feeds:** writeup §What I changed after testing · writeup §Failure taxonomy
 (a gap no scenario covered)
+
+## D-051 — Repair recognition artefacts at the boundary, not in the prompt
+**Date:** 2026-11-21 · **Stage:** Voice testing · **Status:** Accepted
+
+**Decision:** A small, whole-utterance repair table (`guardrails/transcription.py`)
+rewrites known speech-recognition artefacts before the model reads the turn.
+The transcript keeps the raw text. Nothing is added to the prompt, and nothing
+is added to the recogniser's keyterm list.
+
+**The failure.** On a live call the customer said "ji" — the ordinary Hindi
+affirmative — and Nova-3 returned the letter **"G"**. The agent replied
+*"Sorry, I didn't catch that clearly."* This happened on **identity
+confirmation**, which stalls the entire call: the agent cannot discuss the
+account until the customer confirms who they are, and the customer has already
+confirmed.
+
+**Why the obvious diagnosis was wrong.** The instinct is "the model doesn't
+understand Hindi, so teach it in the prompt." Measured against the live model
+before changing anything:
+
+| Customer turn | Agent |
+|---|---|
+| `Ji` | understood as yes |
+| `ji` | understood as yes |
+| `Ji haan` | understood as yes |
+| `Haan ji` | understood as yes |
+| `G, Rohan bol raha hoon` | understood as yes |
+| **`G`** | **"Sorry, I didn't catch that clearly."** |
+
+The model's Hindi is fine. It was handed a letter of the English alphabet and
+correctly had no idea what was meant. Every variant with a second word already
+worked, because the surrounding words carry the meaning. **A lone syllable has
+no context to carry it.** That localises the bug to transcription, which is
+where it is fixed.
+
+**Alternatives considered**
+| Option | Pro | Con | Why not |
+|---|---|---|---|
+| **Whole-utterance repair table** | Deterministic, auditable, zero latency, fixes both surfaces at one chokepoint | Only covers artefacts we know about | **Chosen** |
+| Teach the prompt that stray letters mean agreement | No code | Teaches the agent to **hear consent in noise** — the worst possible failure on a collections call | Rejected on safety |
+| Add `ji`/`haan`/`nahi` to Deepgram keyterms | Fixes it at the source | Biasing a recogniser toward one-syllable affirmatives manufactures consent. `G` fails **loudly**; a fabricated `ji` fails **silently** and becomes a logged agreement the customer never gave | Rejected — a worse failure mode than the one being fixed |
+| Repair the letter anywhere in a sentence | Broader coverage | Risks mangling text a customer genuinely spelled out, and the longer turns already worked | Rejected as unnecessary scope |
+
+**Trade-off accepted:** The table only knows the artefacts we have observed or
+can reasonably expect. A different misrecognition will produce the same
+stalled call. This buys correctness on the known case, not general immunity.
+
+**Two deliberate constraints**
+1. **The transcript keeps the raw text**, with the repair recorded alongside as
+   `repaired_to`. A record that reported better input than actually arrived
+   would hide the exact failure this module exists to measure.
+2. **Repairs are recorded in `state.transcription_repairs`, not
+   `guardrail_hits`.** A misheard syllable is an input-quality event, not a
+   compliance breach; folding it into `guardrail_hits` would make gates G1–G4
+   report violations that never happened. This is the same instrument-integrity
+   mistake as D-024, D-031, D-035, D-037, D-043 and D-045, caught before
+   shipping it rather than after.
+
+**Verified:** `G`, `G.`, `G nahi` and `nahi G` all handled correctly against
+the live model, at both identity confirmation and the closing question. 154
+tests pass, 25 of them new.
+
+**What would change my mind:** If B1's entity harness shows other single-token
+artefacts at any rate, the table stops being the right shape and the answer
+becomes a confidence-gated clarifying question — "sorry, was that a yes?" —
+which is what a human agent does and what no repair table can cover.
+
+**AI involvement:** Human-originated. The user hit this on a live call and
+asked whether it was handled from an understanding perspective. It was not
+handled at all. The question also contained the right instinct — that customers
+*will* reply this way routinely, so a one-off misread is a recurring one.
+
+**Feeds:** writeup §What broke · writeup §Known limits · interview Q "why this
+STT?" and Q "show me a call where it broke"

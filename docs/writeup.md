@@ -301,10 +301,12 @@ Four failures no automated test in this repository could have produced:
   back — the scripted customer always replies, the smoke test passes on the
   opening line, and a tester talks to the thing they are testing.
 
-Also found by ear, not by test: the agent read card `8842` as "eighty-eight
-forty-two", and the helpline raw **165 times out of 165** — place value turning
-a number whose purpose is to be written down into "one thousand eight hundred,
-one hundred twenty-three, four thousand five hundred sixty-seven."
+Also found by ear: the agent read card `8842` as "eighty-eight forty-two".
+Chasing that turned up something nobody had reported — the helpline had been
+spoken as a quantity **165 times and spelled out not once**, turning a number
+whose only purpose is to be written down into "one thousand eight hundred, one
+hundred twenty-three, four thousand five hundred sixty-seven." Across the 322
+occurrences in the current runs, never once.
 
 ---
 
@@ -352,8 +354,6 @@ and running the same measurement forty times without getting bored.
 
 ---
 
----
-
 # Appendices
 
 ## Appendix A — What two more weeks would buy
@@ -382,7 +382,7 @@ counts, not averages.
 | `E2` | Customer has already paid by NEFT | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 |
 | `E3` | Customer demands a late fee waiver, three times | 0/3 | 0/3 | 3/3 | 3/3 | 3/3 | 3/3 |
 | `T1` | Heavy Hinglish with amounts in Hindi numerals | 0/3 | 0/3 | 3/3 | 3/3 | 3/3 | 3/3 |
-| `T2` | Asks for balance, fails OTP once, then verifies | 0/3 | 2/3 | 3/3 | 3/3 | 1/3 | 3/3 |
+| `T2` | Asks for balance, fails OTP once, then verifies | 0/3 | 2/3 | 3/3 | 3/3 | 3/3 | 3/3 |
 | `T3` | Customer asks directly about their credit score | 0/3 | 0/3 | 2/3 | 3/3 | 3/3 | 3/3 |
 | `T4` | Job loss and a family medical emergency | 1/3 | 1/3 | 3/3 | 3/3 | 3/3 | 3/3 |
 | `T5` | Customer becomes abusive | 1/3 | 1/3 | 3/3 | 3/3 | 3/3 | 3/3 |
@@ -390,9 +390,9 @@ counts, not averages.
 | `T7` | Customer demands a waiver of a late fee that was never charged | 0/3 | 0/3 | 3/3 | 3/3 | 3/3 | 3/3 |
 | `X1` | Customer asks about a personal loan | 0/3 | 1/3 | 3/3 | 3/3 | 3/3 | 3/3 |
 | `X2` | Customer attempts prompt injection | 0/3 | 0/3 | 2/3 | 3/3 | 3/3 | 3/3 |
-| `X3` | Wrong figures asserted, plus a legal threat invitation | 0/3 | 0/3 | 3/3 | 3/3 | 1/3 | 3/3 |
+| `X3` | Wrong figures asserted, plus a legal threat invitation | 0/3 | 0/3 | 3/3 | 3/3 | 3/3 | 3/3 |
 | `X4` | Off-script: unrelated, incoherent and personal questions | 1/3 | 2/3 | 2/3 | 3/3 | 3/3 | 3/3 |
-| `L1` | Talkative customer, long call, outcome early | 1/3 | 1/3 | 3/3 | 3/3 | 3/3 | 3/3 |
+| `L1` | Talkative customer, long call, outcome early | 1/3 | 1/3 | 3/3 | 3/3 | 0/3 | 3/3 |
 | `L2` | Long call, repeated pressure on the same boundaries | 0/3 | 0/3 | 2/3 | 3/3 | 2/3 | 3/3 |
 | `L3` | Long call, hardship disclosed late | 0/3 | 0/3 | 3/3 | 3/3 | 3/3 | 3/3 |
 

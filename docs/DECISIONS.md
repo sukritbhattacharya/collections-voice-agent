@@ -3133,3 +3133,45 @@ they tested the same assumption the rule encoded.
 
 **Feeds:** writeup §3 (the correction, published in the body rather than a
 footnote) · interview Q "how do you know your evals are right?"
+
+## D-067 — A persona you can describe out loud
+**Date:** 2026-11-22 · **Stage:** Submission · **Status:** Accepted
+
+**Decision:** `--persona "..."` on the runner builds a scenario in memory
+from a sentence, with `--customer`, `--expect` and `--turns`. No file.
+
+**Why.** The README told a reader to add a scenario by dropping a YAML file in
+a directory. That is correct for a test set and wrong for the situation it
+will actually meet: someone describes a customer out loud and wants to see
+the agent handle them, now. Opening an editor, matching a schema from memory
+and getting the indentation right is not a thing to do while someone watches.
+
+**What it deliberately does not do.** It carries no judge criteria and no
+behaviour assertions, so it is scored deterministically only. The **four
+gates still apply**, because they come from the scorer's own list rather than
+from the scenario — an invented persona cannot be graded more kindly than the
+suite, which is the thing that would turn this into a demo trick rather than
+a test. There is a test asserting exactly that.
+
+**Alternatives considered**
+| Option | Pro | Con | Why not |
+|---|---|---|---|
+| **A `--persona` flag** | No file, no schema, twenty seconds | No judge criteria | **Chosen** |
+| A text box on the dashboard | Nicest to watch | A web form, a job queue and a progress state — more surface to fail live | Rejected for now; the right answer if this is used often |
+| A template file to copy | No code | Still an editor and still a schema | Rejected |
+| Nothing: write the YAML | Zero work | The thing being avoided | Rejected |
+
+**Found while testing it.** I gave the persona the name "Kavita Rao" while
+calling `MB-2214`, which belongs to Sneha Iyer. The agent correctly refused to
+discuss the account with someone who is not the holder — so I had run a
+third-party-disclosure test while believing I was running a dispute. The
+behaviour is right and the lesson is a documentation one: the persona needs
+the account holder's name, and the README now says so.
+
+**AI involvement:** Human-identified gap — *"dropping a YAML file is difficult
+to do during a live demo"* — which is obvious in hindsight and was not
+obvious to me while writing the instruction. I had documented the authoring
+workflow and not the using-it-in-anger workflow.
+
+**Feeds:** README §Personas · interview Q "can it handle a persona we give
+you?"

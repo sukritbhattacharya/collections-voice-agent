@@ -28,7 +28,7 @@ from rich.console import Console
 from rich.table import Table
 
 from src.core.agent_core import VERSIONS, CollectionsAgent
-from src.core.policy import ACCOUNTS
+from src.core.policy import ACCOUNTS, DEFAULT_CUSTOMER_ID
 from src.evals.pricing import cost_usd, fmt
 from src.evals.scorer import RunScore, score_run
 from src.evals.simulator import Simulator
@@ -42,6 +42,39 @@ EST_AGENT_IN, EST_AGENT_OUT = 59_000, 3_500
 EST_SIM_IN, EST_SIM_OUT = 18_000, 600
 
 console = Console()
+
+
+def ad_hoc_scenario(
+    persona: str,
+    *,
+    customer_id: str = DEFAULT_CUSTOMER_ID,
+    expect: list[str] | None = None,
+    turns: int = 14,
+) -> dict[str, Any]:
+    """Build a scenario from a sentence, with no file on disk.
+
+    Writing a YAML file is fine when authoring a test set and useless when
+    someone has just described a customer out loud and wants to see the agent
+    meet them. The persona text is handed to the simulator exactly as given.
+
+    The gates still apply. Every call is scored against all four whatever the
+    scenario says, so an invented persona cannot accidentally be graded more
+    kindly than the suite -- which is the thing that would make this a demo
+    trick rather than a test. What an ad-hoc scenario cannot carry is judge
+    criteria, so it is scored deterministically only; `--expect` names the
+    outcome if there is one worth asserting. See D-067.
+    """
+    return {
+        "id": "AH",
+        "title": f"Ad hoc: {persona[:60]}",
+        "bucket": "ad_hoc",
+        "customer_id": customer_id,
+        "max_turns": turns,
+        "probes": [],
+        "persona": persona,
+        "expect": ({"outcome_any_of": [o.upper() for o in expect]} if expect else {}),
+        "judge_criteria": [],
+    }
 
 
 def load_scenarios(only: list[str] | None = None) -> list[dict[str, Any]]:
@@ -189,9 +222,37 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--dry-run", action="store_true",
                         help="Estimate cost and exit without calling anything.")
     parser.add_argument("--out", default=None, help="Output JSONL path.")
+    parser.add_argument(
+        "--persona", default=None,
+        help="Run one ad-hoc persona described in plain words, with no "
+             "scenario file. Quote it.",
+    )
+    parser.add_argument(
+        "--customer", default=DEFAULT_CUSTOMER_ID,
+        help=f"Account for --persona (default {DEFAULT_CUSTOMER_ID}).",
+    )
+    parser.add_argument(
+        "--expect", nargs="*", default=None,
+        help="Acceptable outcomes for --persona, e.g. PROMISE_TO_PAY.",
+    )
+    parser.add_argument(
+        "--turns", type=int, default=14,
+        help="Max customer turns for --persona (default 14).",
+    )
     args = parser.parse_args(argv)
 
-    scenarios = load_scenarios(args.scenarios)
+    if args.persona:
+        if args.customer not in ACCOUNTS:
+            raise SystemExit(
+                f"no such account: {args.customer}. "
+                f"One of: {', '.join(ACCOUNTS)}"
+            )
+        scenarios = [ad_hoc_scenario(
+            args.persona, customer_id=args.customer,
+            expect=args.expect, turns=args.turns,
+        )]
+    else:
+        scenarios = load_scenarios(args.scenarios)
     total_runs = len(scenarios) * args.runs
     sim_model = os.getenv("SIMULATOR_MODEL", "claude-haiku-5-5")
 

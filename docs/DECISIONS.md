@@ -2787,3 +2787,76 @@ transcription case in D-051.
 
 **Feeds:** writeup §Where I overrode the AI (in reverse) · writeup §What the
 evals cannot see · interview Q "what did you get wrong?"
+
+## D-062 — A card number is a sequence, not a quantity
+**Date:** 2026-11-21 · **Stage:** Manual testing · **Status:** Accepted
+
+**Decision:** A deterministic pass over every draft utterance, after the
+output filter and before speech, rewrites identifier digit runs one digit at a
+time: the card's last four, the verification code, the helpline. Amounts are
+deliberately left alone. The prompt gains the matching rule.
+
+**What happened.** Heard on a live call: the agent read card `8842` as "eight
+eight forty-two". The tester's framing was right — this is an implementation
+defect, not a place the model broke, and it is not logged as one.
+
+**Measured before fixing.** Across every transcript on disk, the agent emitted
+a raw four-digit card number **126 times** and spelled it out **132 times**.
+A coin flip. The prompt already said "speak numbers as words" and the model
+complied about half the time, which is what an instruction buys.
+
+The worse finding was one nobody had reported, because no scenario asks for it:
+the helpline `1800-123-4567` appeared raw **165 times out of 165**. Read with
+place value that is "one thousand eight hundred, one hundred twenty-three,
+four thousand five hundred sixty-seven" — not merely odd but useless, since
+the number exists to be written down. Looking for the reported bug is what
+found it; it would have gone to the demo otherwise.
+
+**Why deterministic and not a better instruction.** Both. The prompt rule
+makes the model get it right most of the time — after adding it, five of five
+probe generations spelled the card and the helpline unaided. The code makes it
+right every time. This is the project's thesis applied to a cosmetic bug
+rather than a compliance one: an instruction fixes the average case, a
+deterministic pass fixes the tail.
+
+**Deliberately narrow.** Only a known identifier, a phone-shaped run, or a run
+introduced by a word like "ending" or "code" is rewritten. **Quantities keep
+place value**, because that is correct for them: `750` read as "seven hundred
+and fifty" is right, and spelling it digit by digit would be a new error
+rather than a fix. The distinction is semantic, not syntactic — the same four
+characters are a sequence in "ending in 4500" and a quantity in "4500 rupees".
+
+**Ordering, which is the part that could have gone quietly wrong.** It runs
+*after* the output filter. The filter matches this account's protected figures
+as digit strings, so turning digits into words first would hand an amount a
+route past the disclosure check. There is a test asserting the call order in
+the source rather than only the behaviour, because the risk here is a future
+reordering, not a logic error.
+
+**A second thing found while checking the first.** The model, once told to
+spell digits, wrote "five. five. two. nine." Speech gives a full stop a
+sentence-length pause, so the card number is read out with gaps that sound
+like hesitation. Full stops *between* two digit words are now collapsed;
+sentence-ending stops are not.
+
+**Alternatives considered**
+| Option | Pro | Con | Why not |
+|---|---|---|---|
+| **Prompt rule plus a deterministic pass** | Right every time; the model usually gets there alone | Two places to keep in step | **Chosen** |
+| Prompt rule only | No code | Measured at roughly half compliance before, and nothing stops a regression | Rejected |
+| SSML `say-as interpret-as="digits"` | The standard way, handled by the voice | Means emitting markup the model would have to produce correctly, and ties the fix to one vendor | Rejected for a swappable TTS layer; the right answer with a fixed provider |
+| Spell every digit run | Trivial | Breaks every amount | Rejected |
+
+**Trade-off accepted:** an amount that happens to equal a card's last four
+would be spelled out. With these fixtures that cannot happen, and if it did
+the error is cosmetic rather than a disclosure.
+
+**AI involvement:** Human-reported, AI-fixed. The tester also pre-empted the
+question of whether this belonged in the failure taxonomy, and was right that
+it does not: it is a rendering bug in our own output path, not the model
+behaving badly. Worth recording that I had read the string "ending in 8842" in
+transcripts repeatedly today while investigating other things and never once
+heard it.
+
+**Feeds:** writeup §What broke · writeup §Guardrails vs prompts · interview Q
+"why this voice?" (the voice was never the problem here)

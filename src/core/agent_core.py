@@ -29,11 +29,13 @@ from typing import Any, Protocol
 
 from .guardrails import input_tripwire
 from .guardrails.numerics import numbers_spoken
+from .guardrails.speech import verbalise as verbalise_identifiers
 from .guardrails.transcription import repair as repair_transcription
 from .guardrails.output_filter import check as filter_output
 from .outcomes import CallOutcome, OutcomeType, TransferReason, deliver
 from .policy import (
     INTEREST_PCT_MONTHLY,
+    ISSUER_HELPLINE,
     ISSUER_NAME,
     LATE_FEE_INR,
     LATE_FEE_THRESHOLD_INR,
@@ -210,6 +212,14 @@ class CollectionsAgent:
         #: output filter, which must be able to tell a correct callback
         #: promise from a misleading one on turn one. See D-058.
         self.no_late_fee = compute_late_fee(account.outstanding_inr) == 0
+        #: Digit sequences this call may read out that are identifiers rather
+        #: than quantities, so they are spoken one digit at a time. Amounts
+        #: are deliberately absent: place value is correct for those.
+        self.spoken_ids: tuple[str, ...] = (
+            account.card_last4,
+            account.otp,
+            ISSUER_HELPLINE,
+        )
         self.registry = ToolRegistry(
             state=self.state, model=self.model, agent_version=version
         )
@@ -432,12 +442,21 @@ class CollectionsAgent:
                 # never heard.
                 self._rewrite_last_assistant_text(text)
 
+        # After the filter, never before: the filter matches this account's
+        # protected figures as digit strings, so turning digits into words
+        # first would hand an amount a way past it. See D-062.
+        speech_notes: list[str] = []
+        if text:
+            text, speech_notes = verbalise_identifiers(text, self.spoken_ids)
+
         if text:
             entry: dict[str, Any] = {
                 "role": "agent",
                 "text": text,
                 "otp_verified": self.state.otp_verified,
             }
+            if speech_notes:
+                entry["verbalised"] = speech_notes
             # Which turn a guardrail rewrote, not just that one did somewhere
             # in the call. `guardrail_hits` answers "did this call breach
             # anything"; reviewing a call needs "on which sentence", and

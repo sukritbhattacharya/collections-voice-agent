@@ -244,15 +244,25 @@ async function startCall() {
     /* Announce the device. A mid-range Android and an iPhone have different
        microphones, different echo cancellation and different autoplay rules,
        so a problem that only appears on one of them should be visible in the
-       data rather than remembered as an impression. */
-    try {
-      await room.localParticipant.publishData(
-        new TextEncoder().encode(JSON.stringify({ type: "client", ...describeDevice() })),
-        { reliable: true, topic: "client" }
-      );
-    } catch {
-      /* non-fatal: the call works without it */
-    }
+       data rather than remembered as an impression.
+
+       Sent again when the agent joins. Data messages are not buffered for
+       participants who arrive later, and the agent takes several seconds to be
+       dispatched -- so the announcement made here, on connect, reaches an
+       empty room and is lost. That is why every call so far recorded
+       `platform: null`. See D-045. */
+    const announceDevice = async () => {
+      try {
+        await room.localParticipant.publishData(
+          new TextEncoder().encode(JSON.stringify({ type: "client", ...describeDevice() })),
+          { reliable: true, topic: "client" }
+        );
+      } catch {
+        /* non-fatal: the call works without it */
+      }
+    };
+    room.on(LK.RoomEvent.ParticipantConnected, announceDevice);
+    await announceDevice();
     await holdWakeLock();
 
     el.intro.hidden = true;

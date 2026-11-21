@@ -11,3 +11,6 @@ results/*.csv
 results/transcripts/*
 !results/transcripts/.gitkeep
 src/evals/voice/audio/*.wav
+
+# Voice comparison clips: regenerate with `python -m src.evals.voice.tts_ab`
+results/voice_ab/*.wav

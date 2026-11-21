@@ -1,0 +1,122 @@
+[
+  {
+    "provider": "deepgram",
+    "voice": "aura-2-thalia-en",
+    "line_no": 1,
+    "line": "Hello, this is Priya calling from Mumbai Bank. Am I speaking with Rohan Mehta?",
+    "file": "results/voice_ab/deepgram-aura-2-thalia-en-1.wav",
+    "bytes": 247724
+  },
+  {
+    "provider": "deepgram",
+    "voice": "aura-2-thalia-en",
+    "line_no": 2,
+    "line": "Your minimum due of four thousand five hundred rupees was payable on the eighth of November.",
+    "file": "results/voice_ab/deepgram-aura-2-thalia-en-2.wav",
+    "bytes": 222764
+  },
+  {
+    "provider": "deepgram",
+    "voice": "aura-2-thalia-en",
+    "line_no": 3,
+    "line": "If you pay by N E F T or U P I today, it will reflect in two working days. The late fee is seven hundred and fifty rupees.",
+    "file": "results/voice_ab/deepgram-aura-2-thalia-en-3.wav",
+    "bytes": 414764
+  },
+  {
+    "provider": "deepgram",
+    "voice": "aura-2-asteria-en",
+    "line_no": 1,
+    "line": "Hello, this is Priya calling from Mumbai Bank. Am I speaking with Rohan Mehta?",
+    "file": "results/voice_ab/deepgram-aura-2-asteria-en-1.wav",
+    "bytes": 232364
+  },
+  {
+    "provider": "deepgram",
+    "voice": "aura-2-asteria-en",
+    "line_no": 2,
+    "line": "Your minimum due of four thousand five hundred rupees was payable on the eighth of November.",
+    "file": "results/voice_ab/deepgram-aura-2-asteria-en-2.wav",
+    "bytes": 297644
+  },
+  {
+    "provider": "deepgram",
+    "voice": "aura-2-asteria-en",
+    "line_no": 3,
+    "line": "If you pay by N E F T or U P I today, it will reflect in two working days. The late fee is seven hundred and fifty rupees.",
+    "file": "results/voice_ab/deepgram-aura-2-asteria-en-3.wav",
+    "bytes": 387884
+  },
+  {
+    "provider": "azure",
+    "voice": "en-IN-NeerjaNeural",
+    "line_no": 1,
+    "line": "Hello, this is Priya calling from Mumbai Bank. Am I speaking with Rohan Mehta?",
+    "file": "results/voice_ab/azure-en-IN-NeerjaNeural-1.wav",
+    "bytes": 316244
+  },
+  {
+    "provider": "azure",
+    "voice": "en-IN-NeerjaNeural",
+    "line_no": 2,
+    "line": "Your minimum due of four thousand five hundred rupees was payable on the eighth of November.",
+    "file": "results/voice_ab/azure-en-IN-NeerjaNeural-2.wav",
+    "bytes": 295844
+  },
+  {
+    "provider": "azure",
+    "voice": "en-IN-NeerjaNeural",
+    "line_no": 3,
+    "line": "If you pay by N E F T or U P I today, it will reflect in two working days. The late fee is seven hundred and fifty rupees.",
+    "file": "results/voice_ab/azure-en-IN-NeerjaNeural-3.wav",
+    "bytes": 453644
+  },
+  {
+    "provider": "azure",
+    "voice": "en-IN-PrabhatNeural",
+    "line_no": 1,
+    "line": "Hello, this is Priya calling from Mumbai Bank. Am I speaking with Rohan Mehta?",
+    "file": "results/voice_ab/azure-en-IN-PrabhatNeural-1.wav",
+    "bytes": 330044
+  },
+  {
+    "provider": "azure",
+    "voice": "en-IN-PrabhatNeural",
+    "line_no": 2,
+    "line": "Your minimum due of four thousand five hundred rupees was payable on the eighth of November.",
+    "file": "results/voice_ab/azure-en-IN-PrabhatNeural-2.wav",
+    "bytes": 343244
+  },
+  {
+    "provider": "azure",
+    "voice": "en-IN-PrabhatNeural",
+    "line_no": 3,
+    "line": "If you pay by N E F T or U P I today, it will reflect in two working days. The late fee is seven hundred and fifty rupees.",
+    "file": "results/voice_ab/azure-en-IN-PrabhatNeural-3.wav",
+    "bytes": 490244
+  },
+  {
+    "provider": "azure",
+    "voice": "en-IN-AnanyaNeural",
+    "line_no": 1,
+    "line": "Hello, this is Priya calling from Mumbai Bank. Am I speaking with Rohan Mehta?",
+    "file": "results/voice_ab/azure-en-IN-AnanyaNeural-1.wav",
+    "bytes": 300044
+  },
+  {
+    "provider": "azure",
+    "voice": "en-IN-AnanyaNeural",
+    "line_no": 2,
+    "line": "Your minimum due of four thousand five hundred rupees was payable on the eighth of November.",
+    "file": "results/voice_ab/azure-en-IN-AnanyaNeural-2.wav",
+    "bytes": 254444
+  },
+  {
+    "provider": "azure",
+    "voice": "en-IN-AnanyaNeural",
+    "line_no": 3,
+    "line": "If you pay by N E F T or U P I today, it will reflect in two working days. The late fee is seven hundred and fifty rupees.",
+    "file": "results/voice_ab/azure-en-IN-AnanyaNeural-3.wav",
+    "bytes": 414044
+  }
+]

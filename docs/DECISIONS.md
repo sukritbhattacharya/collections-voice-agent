@@ -1579,3 +1579,205 @@ the "No calls yet" report was initially assumed to be a consequence of the
 same 400, and was not.
 
 **Feeds:** writeup §What broke · writeup §Outcome delivery
+
+---
+
+## D-043 — M5 was instrumented on the wrong event, and reported 12.6 seconds
+**Date:** 2026-11-21 · **Stage:** First successful live call · **Status:** Accepted
+
+**Decision:** Mark time-to-first-audio on the agent's transition into
+`speaking`, not on `conversation_item_added`.
+
+**What the first good call reported:** `p50/p95: 12641 / 12641 ms`, against an
+M5 target of ≤1500 ms — on a call the caller described as working, and which a
+read of the transcript confirms was responsive.
+
+Both facts were true. `conversation_item_added` fires when the assistant's
+utterance is *committed to the chat context*, which happens after it has
+finished playing. So the mark measured end-of-customer-speech to
+end-of-agent-speech: how long the agent talked, plus how long it took to
+start. For a four-sentence closing line, 12.6 seconds is about right.
+
+M5 is defined in the test plan as "end of speech → first audio." The
+instrument measured something else and the number was off by roughly an order
+of magnitude — in the direction that would have made me "fix" a latency
+problem that did not exist.
+
+**This is the fourth time the measuring instrument has been the defect**
+(D-024, D-031/D-035, D-037, now this). The pattern is consistent enough to
+state as a finding in its own right: in this build, every false signal came
+from the thing doing the measuring, and none of them were caught by a score
+moving. They were caught by reading a transcript or a payload and noticing a
+number that did not match the lived experience of the call.
+
+**Trade-off accepted:** the transition into `speaking` is the earliest signal
+the framework exposes, but it is the agent's own view of first audio, not the
+caller's ear. Network transit and jitter-buffer on the handset are not
+included, so the reported figure is a floor. Stated rather than corrected,
+because measuring the far end needs instrumentation in the browser.
+
+**What would change my mind:** if the client-side gap turns out to be material
+on a mid-range Android over cellular, the mark belongs in the web client and
+the number becomes a round trip.
+
+**AI involvement:** AI-originated bug, AI-originated fix. Found because the
+payload was read after a successful call rather than filed as a pass.
+
+**Feeds:** writeup §How I measured · writeup §What broke · interview Q "what
+was your p95?"
+
+---
+
+## D-044 — The agent ends its own call
+**Date:** 2026-11-21 · **Stage:** First successful live call · **Status:** Accepted
+
+**Decision:** When the outcome is captured, the agent drains its closing line
+and then deletes the room. A hard ceiling of `MAX_CALL_SEC` (240s default)
+ends the call regardless.
+
+**Why.** Raised by the human after the first successful call: the agent
+captured a promise to pay and then sat on the line waiting to be hung up on.
+That is not only untidy, it is a compliance surface. An open line after the
+business of the call is finished is an invitation to ask the agent things it
+has no authority to answer, and every one of those turns is a fresh chance to
+breach a gate. It is also how a call with a 2-3 minute budget (M4) becomes
+unbounded — and M4 was, until now, a metric the system had no mechanism to
+enforce.
+
+**Alternatives considered**
+
+| Option | Pro | Con | Why not |
+|---|---|---|---|
+| Disconnect the agent participant only | Simplest call | The caller's page listens for its own disconnect, so it would still show "On call" with nobody there | Rejected — looks like a hang |
+| Let the model decide via a `hang_up` tool | The model already decides when to log the outcome | A second decision to get wrong, and a tool whose failure mode is hanging up mid-sentence | Rejected: `log_outcome` already *is* the signal |
+| Fixed timer only, no outcome trigger | Trivial | Ends good calls early and bad calls late | Rejected |
+
+**Trade-off accepted.** `log_outcome` now has a side effect beyond logging: it
+ends the call. If the model logs an outcome prematurely — mid-negotiation, say
+— the customer is hung up on. That is a real failure mode and the ceiling
+cannot catch it. Mitigated only by the closing line being drained first, so
+the customer at least hears a goodbye. **Promoted to a named untested failure
+case** rather than assumed away.
+
+**What would change my mind:** one instance of a premature hang-up in testing
+moves this behind a confirmation turn ("Is there anything else before I let
+you go?") rather than firing on the outcome directly.
+
+**AI involvement:** Human-originated. I had built the loop to exit on
+`core.ended` and then simply stopped, having never watched a call end from the
+customer's side.
+
+**Feeds:** writeup §What I changed after testing · writeup §Failure taxonomy
+(new untested case) · interview Q "how do you bound a call?"
+
+---
+
+## D-045 — Every call recorded `platform: null`, because the room was empty when the device announced itself
+**Date:** 2026-11-21 · **Stage:** First successful live call · **Status:** Accepted
+
+**Decision:** The web client re-announces the device whenever a remote
+participant joins, not only on connect.
+
+**Why.** B4 exists so that a failure on one handset shows up in the data
+rather than as a recollection. Every call so far carried
+`platform: null, browser: null`, so B4 had no data at all — including the
+successful Android call, which is precisely the evidence the device matrix was
+for.
+
+The cause is a race nobody would see locally: the browser publishes its device
+info immediately after `room.connect()`, and LiveKit does not buffer data
+messages for participants who join later. The agent is dispatched roughly 5.6
+seconds after the room is created (measured in D-036). The announcement was
+reliably sent to an empty room.
+
+**Alternatives considered**
+
+| Option | Pro | Con | Why not |
+|---|---|---|---|
+| Put platform/browser in the token request, stash in participant metadata | No race at all; available to the agent on join | Token endpoint and agent both change; metadata plumbing | The better design — deferred, and recorded as such |
+| Re-publish on a timer until acknowledged | Robust to any join order | Chatter, and an ack protocol for three strings | Rejected |
+| Read the user agent server-side at `/token` | Zero client code | A proxy or the tunnel can rewrite it; and it misses the real question, which is what the *caller* thinks it is | Rejected |
+
+**Trade-off accepted:** `ParticipantConnected` fires for any remote
+participant. With one agent per room that is exactly the agent, but the
+assumption is not enforced anywhere.
+
+**AI involvement:** AI proposed, accepted. Found while investigating D-043 —
+reading the same payload that exposed the latency bug.
+
+**Feeds:** writeup §How I measured (device matrix) · writeup §What broke
+
+---
+
+## D-046 — Azure `en-IN` ships as the default voice: better fit and, unexpectedly, faster
+**Date:** 2026-11-21 · **Stage:** Voice comparison (B3) · **Status:** Accepted
+**Closes:** the gap accepted in D-005 and D-014, per the plan in D-025
+
+**Decision:** `TTS_PROVIDER=azure`, `en-IN-NeerjaNeural`. Aura-2 stays behind
+the flag.
+
+**Why.** Raised by the human after hearing the agent on a phone: the voice is
+American, and for an Indian collections call the voice is not cosmetic. A
+customer deciding in the first two seconds whether this is a real bank or a
+scam is reading accent and prosody before content. D-005 and D-014 both
+recorded the absence of an Indian-English voice in Aura-2 as an accepted gap;
+D-025 promoted closing it from a stretch to a real comparison. This executes
+that plan.
+
+**One correction to the premise, worth keeping straight for the interview:**
+Deepgram was chosen for *speech-to-text* — Nova-3 with `language=multi`, for
+Hinglish code-switching — not for its voice. Aura-2 came along as the
+same-vendor default, and its lack of an `en-IN` voice was logged as a known
+cost from the beginning rather than discovered now.
+
+**The measurement, which changed the shape of the decision.** I expected to be
+trading latency for accent fit, since M5 has a 1.5s budget and TTS sits inside
+it. Five runs of the same sentence, time to first audio byte:
+
+| Voice | Median TTFB | Min | Max |
+|---|---|---|---|
+| Deepgram Aura-2 `thalia` (US) | 911 ms | 844 | 1171 |
+| **Azure `en-IN-NeerjaNeural` (Central India)** | **340 ms** | 228 | 467 |
+
+Azure is 2.7× faster. The reason is geography, not model quality: Central
+India is a regional hop from the test machine, Deepgram's endpoint is
+transatlantic. There was no trade-off to make — the right-sounding voice is
+also 571 ms cheaper per turn, which is a third of the entire M5 budget
+recovered.
+
+**This is the decision I would have got wrong by reasoning alone.** D-014
+argued single-vendor simplicity on the assumption that the same-vendor path
+was the low-latency one. For an India-facing deployment on an India-hosted
+region, that assumption was backwards, and only measurement showed it.
+
+**Evidence produced:** `src/evals/voice/tts_ab.py` records the same three
+lines — Hindi name and identity check, rupee amount as words with a date, and
+payment rails plus a policy figure — in five voices across both providers. 15
+clips in `results/voice_ab/`, for listening rather than for a score.
+
+**Alternatives considered**
+
+| Option | Pro | Con | Why not |
+|---|---|---|---|
+| Keep Aura-2, accept the accent | One vendor, one key, one bill | The gap the human correctly refused to accept; also slower | Rejected on both counts |
+| `en-IN-PrabhatNeural` (male) | Some portfolios prefer a male collector | No evidence either way here; the agent is named Priya | Recorded and available; not the default |
+| Sarvam Bulbul v3 | Purpose-built Indian voices | Separate vendor and billing, unproven latency, and D-025 already replaced it | Rejected |
+
+**Trade-off accepted:** two speech vendors instead of one — Deepgram for
+hearing, Azure for speaking — so two keys, two bills, two failure modes. Worth
+it for the accent and the 571 ms. Azure's F0 tier (0.5M characters/month,
+perpetual) covers roughly 100 three-minute calls, so cost is not the
+constraint at this scale.
+
+**What would change my mind:** if `en-IN` mispronounces rupee amounts or reads
+dates as digit strings — exactly what B3 is listening for. The clips exist so
+this is decided by ear, not by preference.
+
+**AI involvement:** AI proposed, overridden. I defaulted to the single-vendor
+path and carried a stated-but-unclosed gap for three days. The human heard the
+problem in two seconds on a real phone. The latency finding that made it
+costless was mine, and it only exists because the override forced the
+measurement.
+
+**Feeds:** writeup §Stack (why this voice) · writeup §What I changed after
+testing · writeup §Where I overrode the AI · interview Q "why this voice?"

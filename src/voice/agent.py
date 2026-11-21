@@ -17,6 +17,7 @@ import asyncio
 import json
 import logging
 import os
+import time
 
 from dotenv import load_dotenv
 from livekit.agents import Agent, AgentSession, JobContext, WorkerOptions, cli
@@ -30,6 +31,17 @@ from src.voice.telemetry import CallTelemetry
 load_dotenv()
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)-7s %(message)s")
 logger = logging.getLogger("collections.voice")
+
+# A collections call has a 2-3 minute budget (M4). Without a ceiling the agent
+# stays on the line as long as the customer keeps talking, which is both a cost
+# problem and a compliance one: an open-ended call is an invitation to ask the
+# agent things it has no business answering. See D-044.
+MAX_CALL_SEC = float(os.getenv("MAX_CALL_SEC", "240"))
+
+WRAP_UP_LINE = (
+    "I need to let you go, but thank you for your time. "
+    "You can reach us on the number on the back of your card. Goodbye."
+)
 
 
 def build_stt() -> deepgram.STT:
@@ -138,11 +150,21 @@ async def entrypoint(ctx: JobContext) -> None:
         if getattr(event, "is_final", False):
             telemetry.begin_turn()
 
-    @session.on("conversation_item_added")
-    def _on_item(event) -> None:
-        item = getattr(event, "item", None)
-        if getattr(item, "role", None) == "assistant" and telemetry.turns:
-            telemetry.turns[-1].mark("audio_out")
+    @session.on("agent_state_changed")
+    def _on_agent_state(event) -> None:
+        """Mark the *first* audio of the reply, not the last.
+
+        This previously hung off `conversation_item_added`, which fires once
+        the utterance has finished playing. That measured how long the agent
+        talked: a call that felt responsive reported a p95 of 12,641 ms. M5 is
+        defined as end-of-customer-speech to first audio out, so the mark
+        belongs on the transition into `speaking`. See D-043.
+        """
+        if getattr(event, "new_state", None) != "speaking" or not telemetry.turns:
+            return
+        timing = telemetry.turns[-1]
+        if timing.audio_out_ms is None:
+            timing.mark("audio_out")
 
     await session.start(
         agent=Agent(instructions="Collections agent. Behaviour is owned by the core."),
@@ -153,12 +175,29 @@ async def entrypoint(ctx: JobContext) -> None:
     opening = await asyncio.to_thread(core.open_call)
     await session.say(opening.text)
 
+    deadline = time.monotonic() + MAX_CALL_SEC
+    timed_out = False
     try:
         while not core.ended:
-            await asyncio.sleep(0.5)
+            if time.monotonic() > deadline:
+                timed_out = True
+                logger.warning("call hit the %.0fs ceiling; wrapping up", MAX_CALL_SEC)
+                break
+            await asyncio.sleep(0.25)
     except asyncio.CancelledError:
         logger.info("call cancelled")
     finally:
+        # If we are ending on the clock rather than on the conversation, say so
+        # first. Then let whatever is mid-sentence finish playing: hanging up
+        # over the top of our own closing line is worse than staying on the
+        # line half a second longer. See D-044.
+        try:
+            if timed_out:
+                await session.say(WRAP_UP_LINE)
+            await session.drain()
+        except Exception:
+            logger.warning("could not finish the closing utterance cleanly")
+
         summary = telemetry.summary()
         # Passed in rather than assigned afterwards: `finish` delivers the
         # outcome to the CRM sink, so anything set after it returns never
@@ -203,6 +242,23 @@ async def entrypoint(ctx: JobContext) -> None:
         logger.info("stage medians: %s", telemetry.stage_breakdown())
         if core.state.guardrail_hits:
             logger.warning("guardrail hits: %s", core.state.guardrail_hits)
+
+        # The agent ends its own call. Waiting for the customer to hang up
+        # leaves the line open after the outcome is already captured, which is
+        # how a 2-minute collections call becomes a 9-minute open-ended
+        # conversation about anything they feel like asking.
+        #
+        # Deleting the room rather than disconnecting just this participant:
+        # the caller's browser listens for its own disconnect, so leaving the
+        # room alive would end the agent's side while the page still showed
+        # "On call". A brief pause first, so the outcome message we just
+        # published actually lands before the transport goes away.
+        try:
+            await asyncio.sleep(0.75)
+            await ctx.delete_room()
+            logger.info("agent ended the call")
+        except Exception:
+            logger.warning("could not close the room; the caller may have to hang up")
 
 
 if __name__ == "__main__":

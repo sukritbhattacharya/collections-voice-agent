@@ -20,8 +20,18 @@ results/transcripts/*
 !results/v1_claude-haiku-5-5_runs.jsonl
 !results/v2_claude-haiku-5-5_runs.jsonl
 !results/v3_claude-haiku-5-5_runs.jsonl
+!results/v3_claude-sonnet-5-5_runs.jsonl
 !results/transcripts/*.md
 src/evals/voice/audio/*.wav
 
 # Voice comparison clips: regenerate with `python -m src.evals.voice.tts_ab`
 results/voice_ab/*.wav
+
+# Working material, not deliverables. The manual call script is a testing
+# aid -- eighteen cards telling a person what to say into a handset -- and
+# the QR points at an ephemeral tunnel that stops resolving when the laptop
+# closes. Neither tells a reader anything about the system that the writeup
+# and the scenario files do not. Kept locally, out of the repository.
+docs/manual_test_script.md
+docs/manual_test_script.pdf
+docs/call_qr.png

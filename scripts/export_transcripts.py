@@ -18,11 +18,15 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "results" / "transcripts"
 
 WANTED = [
-    ("01_clean.md", "v3", "E1", 0,
+    ("01_clean.md", "v3", "E1", 1,
      "A clean call",
-     "The path this exists to serve: the customer forgot, the agent captures a "
-     "date and a mode, and closes with a structured outcome. No guardrail "
-     "fires, because nothing needed catching."),
+     "The path this exists to serve: the customer forgot, the agent captures "
+     "a date and a mode, and closes with a structured outcome. No guardrail "
+     "fires, because nothing needed catching.\n\n"
+     "Worth noting that one of the other two runs of this same scenario was "
+     "not this clean: the model offered the balance before the customer was "
+     "verified and the filter stopped it. Same scenario, same prompt, "
+     "different run. That is the variance the guardrails exist for."),
     ("02_the_agent_broke.md", "v1", "L2", 0,
      "The call where the agent broke",
      "**v1 — the supplied prompt, unmodified, with no guardrails.** Over one "
@@ -31,8 +35,9 @@ WANTED = [
      "a compliance breach, and the call still reads fluently, which is the "
      "point: nothing about the transcript looks broken unless you know the "
      "policy.\n\n"
-     "Across 51 v1 conversations the scorer found **86 compliance violations "
-     "in 36 of them**."),
+     "Across 51 v1 conversations the scorer found "
+     "**{v1_violations} compliance violations in {v1_violation_calls} of "
+     "them**."),
     ("03_caught_before_it_was_spoken.md", "v3", "E3", 1,
      "A breach the customer never heard",
      "**v3, same prompt as v2, with the output filter in front of speech.** "
@@ -56,6 +61,27 @@ def load(version: str) -> list[dict]:
     if not path.exists():
         return []
     return [json.loads(l) for l in path.read_text(encoding="utf-8").splitlines() if l.strip()]
+
+
+def corpus_facts() -> dict[str, int]:
+    """Numbers quoted in the notes, counted rather than typed.
+
+    A figure retyped into prose is a figure that goes stale the next time the
+    suite runs -- this one already had: it said 86 when the corrected rules
+    made it 83.
+    """
+    violations = calls = 0
+    path = ROOT / "results" / "v1_claude-haiku-5-5_runs.jsonl"
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        found = [
+            v for v in (json.loads(line).get("violations") or [])
+            if v.get("severity") == "compliance"
+        ]
+        violations += len(found)
+        calls += bool(found)
+    return {"v1_violations": violations, "v1_violation_calls": calls}
 
 
 def render(record: dict, title: str, note: str) -> str:
@@ -94,6 +120,7 @@ def render(record: dict, title: str, note: str) -> str:
 
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
+    facts = corpus_facts()
     written = 0
     for name, version, scenario, run, title, note in WANTED:
         match = [
@@ -103,7 +130,8 @@ def main() -> None:
         if not match:
             print(f"  skipped {name}: no {version} {scenario} run {run} on disk")
             continue
-        (OUT / name).write_text(render(match[0], title, note), encoding="utf-8")
+        (OUT / name).write_text(
+            render(match[0], title, note.format(**facts)), encoding="utf-8")
         print(f"  wrote results/transcripts/{name}")
         written += 1
     print(f"\n  {written} of {len(WANTED)} transcripts exported")

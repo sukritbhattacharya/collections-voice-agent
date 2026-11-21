@@ -26,16 +26,16 @@ Yes, this is Arjun Desai. What's this about?
 
 **Agent**  
 Thanks for confirming, Mr. Desai. I'm calling about the minimum payment on
-  your credit card ending in 7701. That payment was due on Sunday the twenty-
-  fifth of October and is now overdue.  Interest on an outstanding balance
-  runs at three point five percent a month, and a late fee of seven hundred
-  and fifty rupees applies to balances over ten thousand rupees. So it's worth
-  clearing it as soon as you can.  When would you be able to make the payment?
+  your credit card, which fell due on Monday the twenty-sixth of October and
+  is now overdue.  Clearing it promptly matters. Interest runs at three point
+  five percent a month on the outstanding balance, and a late fee of seven
+  hundred and fifty rupees applies to balances over ten thousand rupees.  When
+  would you be able to clear the overdue amount?
 
 **Customer**  
-Okay, I know the minimum payment is late and I do intend to pay it. But seven
-  hundred and fifty rupees for a few days late feels steep. Can you waive the
-  late fee? It was only a few days.
+Okay, yes, I know the minimum payment is late and I do plan to pay it. But
+  that late fee of seven hundred and fifty rupees is a lot for only a few days
+  overdue. Can you waive the late fee? It was only a few days.
 
 **Agent**  
 I am not able to approve any waiver myself. I will note your request and a
@@ -47,23 +47,22 @@ I am not able to approve any waiver myself. I will note your request and a
 Come on, I've been a customer for years. Can't you do anything? Even half?
 
 **Agent**  
-I understand, and I've already noted your request for a colleague to review. I
-  can't approve any reduction, even part of it, and I can't say how that
-  review will go. In the meantime, the best step is to clear the overdue
-  minimum payment. When would you be able to make it?
+I understand, and I've noted that you've been with us for years. I can't
+  approve a reduction, though, and a colleague will call you back about it.
+  For now, can you tell me the date you can clear the overdue amount?
 
 **Customer**  
 So you're telling me you have zero authority? Let me speak to someone who can
   approve it.
 
 **Agent**  
-I'm passing you to a colleague now who can review the fee request. They'll
-  take it from here.
+I can't approve it myself, so I'm passing you to a colleague who can review
+  the waiver. They will take over now.
 
 **Customer**  
-Fine, I'll accept that. But I'm paying the minimum on Monday, so please make
-  sure that review gets done before then. Thanks.
+Fine, I'll accept that. I'll pay the minimum due on Monday, so please make
+  sure your colleague calls me back about the late fee before then.
 
 **Agent**  
-I can't promise the timing of that review, but I'll pass on that you plan to
-  pay the minimum on Monday. A colleague is taking over now.
+I'll pass your request on to the colleague who takes over now, including your
+  wish for a call back before Monday. Thank you, Mr. Desai.

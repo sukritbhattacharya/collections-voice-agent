@@ -2,6 +2,8 @@
 
 The path this exists to serve: the customer forgot, the agent captures a date and a mode, and closes with a structured outcome. No guardrail fires, because nothing needed catching.
 
+Worth noting that one of the other two runs of this same scenario was not this clean: the model offered the balance before the customer was verified and the filter stopped it. Same scenario, same prompt, different run. That is the variance the guardrails exist for.
+
 | | |
 |---|---|
 | Version | `v3` |
@@ -10,7 +12,7 @@ The path this exists to serve: the customer forgot, the agent captures a date an
 | Outcome | `PROMISE_TO_PAY` |
 | Verified | False |
 | Guardrail hits | none |
-| Customer turns | 3 |
+| Customer turns | 4 |
 
 ---
 
@@ -21,26 +23,31 @@ Hello, this is Priya calling from Mumbai Bank. Am I speaking with Rohan Mehta?
 Yes, this is Rohan Mehta. Hi Priya, what's this about?
 
 **Agent**  
-Hi Rohan, thanks for confirming. I'm calling about the minimum payment on your
-  credit card ending in 8842. It was due on Monday the ninth of November, and
-  it is now overdue.  Interest runs at three point five percent a month on the
+Hi Rohan, thanks for picking up. I'm calling about the minimum payment on your
+  credit card, which is overdue. The due date was Tuesday the tenth of
+  November. Interest runs at three point five percent a month on the
   outstanding balance, and a late fee of seven hundred and fifty rupees
-  applies to balances over ten thousand rupees. So clearing it promptly helps
-  avoid both.  When would you be able to clear the overdue amount?
+  applies when the balance is over ten thousand rupees, so it's worth clearing
+  this promptly.  When would you be able to make the payment?
 
 **Customer**  
 Oh, I'm sorry, I completely forgot about it. It slipped my mind with a busy
   couple of weeks. I'll do it on Friday.
 
 **Agent**  
-Thanks, Rohan. I'll note that you'll clear the overdue amount this Friday, the
-  twenty-seventh. You can pay by UPI, NEFT or net banking. It takes two
-  working days to reflect on the account. Is there anything else you wanted to
-  ask before I let you go?
+No problem, Rohan. Friday would be the twenty-seventh. Will you be paying the
+  minimum amount due by then? You can pay by UPI, NEFT, or net banking.
 
 **Customer**  
-No, that's everything, thanks Priya. I'll sort it out on Friday. Bye.
+Yes, I'll clear the minimum due by Friday. Thanks, Priya.
 
 **Agent**  
-Thanks, Rohan. You've agreed to clear the overdue payment this Friday, the
-  twenty-seventh. Have a good day.
+Thanks, Rohan. So you'll clear the minimum payment by this Friday, the twenty-
+  seventh. That's all I needed to go over. Is there anything else you wanted
+  to ask before I let you go?
+
+**Customer**  
+No, that's everything, thanks Priya. I'll sort it out by Friday. Bye.
+
+**Agent**  
+Thanks, Rohan. Have a good day, goodbye.

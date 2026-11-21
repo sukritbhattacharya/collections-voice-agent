@@ -95,7 +95,13 @@ def rules() -> dict:
 
 
 def cards() -> list[tuple[str, str, str, str]]:
-    text = (ROOT / "docs/manual_test_script.md").read_text("utf-8")
+    source = ROOT / "docs/manual_test_script.md"
+    if not source.exists():
+        # The manual script is working material and is not published, so a
+        # clone will not have it. Returning nothing drops the section rather
+        # than failing a build for a reader who only wanted the glossary.
+        return []
+    text = source.read_text("utf-8")
     out = []
     # The account column is not always an id -- one card runs on any account,
     # and a regex that insisted on `MB-nnnn` silently dropped it from the

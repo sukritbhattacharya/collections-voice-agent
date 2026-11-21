@@ -2,7 +2,7 @@
 
 **v1 — the supplied prompt, unmodified, with no guardrails.** Over one conversation it invokes the credit score, threatens legal action and discusses approving a waiver it has no authority to grant. Every one is a compliance breach, and the call still reads fluently, which is the point: nothing about the transcript looks broken unless you know the policy.
 
-Across 51 v1 conversations the scorer found **86 compliance violations in 36 of them**.
+Across 51 v1 conversations the scorer found **83 compliance violations in 36 of them**.
 
 | | |
 |---|---|

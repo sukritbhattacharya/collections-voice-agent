@@ -50,43 +50,49 @@ ACCENT = colors.HexColor("#1b6ef3")
 FAIL = colors.HexColor("#c3362b")
 
 
+#: Type scale. The writeup is held to a page budget, so it is set a little
+#: tighter than the other documents rather than having required content cut
+#: out of it. Set from the command line; 1.0 everywhere else.
+SCALE = 1.0
+
+
 def styles() -> dict[str, ParagraphStyle]:
     base = getSampleStyleSheet()["BodyText"]
     s: dict[str, ParagraphStyle] = {}
     s["body"] = ParagraphStyle(
-        "body", parent=base, fontName="Helvetica", fontSize=9.6, leading=14.2,
-        textColor=INK, alignment=TA_LEFT, spaceAfter=6,
+        "body", parent=base, fontName="Helvetica", fontSize=9.6 * SCALE, leading=14.2 * SCALE,
+        textColor=INK, alignment=TA_LEFT, spaceAfter=6 * SCALE,
     )
     s["h1"] = ParagraphStyle(
-        "h1", parent=s["body"], fontName="Helvetica-Bold", fontSize=20,
-        leading=24, spaceBefore=0, spaceAfter=10,
+        "h1", parent=s["body"], fontName="Helvetica-Bold", fontSize=20 * SCALE,
+        leading=24 * SCALE, spaceBefore=0 * SCALE, spaceAfter=10 * SCALE,
     )
     s["h2"] = ParagraphStyle(
-        "h2", parent=s["body"], fontName="Helvetica-Bold", fontSize=13.5,
-        leading=17, spaceBefore=16, spaceAfter=6,
+        "h2", parent=s["body"], fontName="Helvetica-Bold", fontSize=13.5 * SCALE,
+        leading=17 * SCALE, spaceBefore=16 * SCALE, spaceAfter=6 * SCALE,
     )
     s["h3"] = ParagraphStyle(
-        "h3", parent=s["body"], fontName="Helvetica-Bold", fontSize=11.2,
-        leading=14, spaceBefore=13, spaceAfter=4, textColor=ACCENT,
+        "h3", parent=s["body"], fontName="Helvetica-Bold", fontSize=11.2 * SCALE,
+        leading=14 * SCALE, spaceBefore=13 * SCALE, spaceAfter=4 * SCALE, textColor=ACCENT,
     )
     s["cell"] = ParagraphStyle(
-        "cell", parent=s["body"], fontSize=8.6, leading=11.6, spaceAfter=0,
+        "cell", parent=s["body"], fontSize=8.6 * SCALE, leading=11.6 * SCALE, spaceAfter=0 * SCALE,
     )
     s["cellhead"] = ParagraphStyle(
         "cellhead", parent=s["cell"], fontName="Helvetica-Bold", textColor=DIM,
     )
     s["quote"] = ParagraphStyle(
-        "quote", parent=s["body"], fontName="Helvetica-Oblique", fontSize=9.4,
-        leading=14, leftIndent=10, textColor=DIM, spaceBefore=2, spaceAfter=8,
+        "quote", parent=s["body"], fontName="Helvetica-Oblique", fontSize=9.4 * SCALE,
+        leading=14 * SCALE, leftIndent=10, textColor=DIM, spaceBefore=2 * SCALE, spaceAfter=8 * SCALE,
         borderPadding=0,
     )
     s["bullet"] = ParagraphStyle(
-        "bullet", parent=s["body"], fontSize=9.4, leading=13.4, spaceAfter=2,
+        "bullet", parent=s["body"], fontSize=9.4 * SCALE, leading=13.4 * SCALE, spaceAfter=2 * SCALE,
     )
     s["code"] = ParagraphStyle(
-        "code", parent=s["body"], fontName="Courier", fontSize=8.4, leading=11.6,
-        textColor=INK, backColor=BAND, borderPadding=6, spaceBefore=4,
-        spaceAfter=8, leftIndent=2,
+        "code", parent=s["body"], fontName="Courier", fontSize=8.4 * SCALE, leading=11.6 * SCALE,
+        textColor=INK, backColor=BAND, borderPadding=6, spaceBefore=4 * SCALE,
+        spaceAfter=8 * SCALE, leftIndent=2,
     )
     return s
 
@@ -102,7 +108,8 @@ def inline(text: str) -> str:
     # Markdown links: keep the label, drop the target -- this is paper.
     text = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r"\1", text)
     text = text.replace("—", "\u2014").replace("·", "\u00b7")
-    return text
+    # Last, so the font tag is not mangled by the escaping above.
+    return tag_devanagari(text)
 
 
 def split_row(line: str) -> list[str]:
@@ -281,6 +288,53 @@ UNRENDERABLE = {
 }
 
 
+#: Devanagari appears in three places in the decision log -- recorded
+#: transcripts of what the speech recogniser actually returned. Romanising
+#: them would defeat the purpose of quoting them. The built-in fonts have no
+#: Devanagari, so one is registered from the system if present and the runs
+#: are tagged to use it. Where no such font exists -- a Linux clone, say --
+#: the build does not fail: the text is kept and a note is printed, because
+#: a reader who wanted the decision log should get it.
+DEVANAGARI = re.compile(r"[\u0900-\u097f\u200c\u200d]+")
+_DEVA_FONT: str | None = None
+
+
+def register_devanagari() -> str | None:
+    global _DEVA_FONT
+    if _DEVA_FONT is not None:
+        return _DEVA_FONT or None
+    candidates = [
+        ("/System/Library/Fonts/Supplemental/Devanagari Sangam MN.ttc", 0),
+        ("/System/Library/Fonts/Supplemental/DevanagariMT.ttc", 0),
+        ("/System/Library/Fonts/Kohinoor.ttc", 0),
+        ("/usr/share/fonts/truetype/lohit-devanagari/Lohit-Devanagari.ttf", None),
+        ("/usr/share/fonts/truetype/noto/NotoSansDevanagari-Regular.ttf", None),
+    ]
+    for path, index in candidates:
+        if not Path(path).exists():
+            continue
+        try:
+            from reportlab.pdfbase import pdfmetrics
+            from reportlab.pdfbase.ttfonts import TTFont
+
+            font = (TTFont("Deva", path, subfontIndex=index)
+                    if index is not None else TTFont("Deva", path))
+            pdfmetrics.registerFont(font)
+            _DEVA_FONT = "Deva"
+            return "Deva"
+        except Exception:
+            continue
+    _DEVA_FONT = ""
+    return None
+
+
+def tag_devanagari(text: str) -> str:
+    """Wrap Devanagari runs so they are drawn with the registered font."""
+    if not register_devanagari():
+        return text
+    return DEVANAGARI.sub(lambda m: f'<font name="Deva">{m.group(0)}</font>', text)
+
+
 def renderable(text: str) -> str:
     """Replace what the font cannot draw, and collapse the double space that
     "Rs " leaves when it already had one after it."""
@@ -295,9 +349,11 @@ def assert_renderable(text: str) -> None:
     A box in a document that goes to someone else is worse than a crash here,
     and this is the check that was missing.
     """
+    has_deva = register_devanagari() is not None
     unknown = sorted({
         ch for ch in text
         if not _encodable(ch)
+        and not (has_deva and DEVANAGARI.match(ch))
     })
     if unknown:
         listed = ", ".join(f"U+{ord(c):04X} {c!r}" for c in unknown)
@@ -332,6 +388,9 @@ def main() -> int:
         OUT = Path(sys.argv[2])
     if len(sys.argv) > 3:
         LABEL = sys.argv[3]
+    if len(sys.argv) > 4:
+        global SCALE
+        SCALE = float(sys.argv[4])
     if not SOURCE.exists():
         print(f"missing {SOURCE}")
         return 1

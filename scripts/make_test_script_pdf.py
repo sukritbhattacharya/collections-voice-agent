@@ -33,8 +33,14 @@ from reportlab.platypus import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
+
+#: Defaults, overridable on the command line:
+#:   make_test_script_pdf.py [source.md [out.pdf [footer label]]]
+#: Generalised rather than copied when the writeup needed the same treatment.
+#: Two converters drift, and the second one is always the one with the bug.
 SOURCE = ROOT / "docs" / "manual_test_script.md"
 OUT = ROOT / "docs" / "manual_test_script.pdf"
+LABEL = "manual test script"
 
 INK = colors.HexColor("#15181d")
 DIM = colors.HexColor("#5b6472")
@@ -251,16 +257,81 @@ def convert(md: str, st: dict) -> list:
     return story
 
 
+#: Characters the built-in fonts cannot draw. ReportLab's Helvetica is encoded
+#: WinAnsi (cp1252); anything outside it renders as a solid black box, which
+#: is how "Rs 750" spent a day in these documents as a filled rectangle. I had
+#: verified the text was *present* by extracting it, which is not the same as
+#: checking it drew -- the extraction read back the character the box stood in
+#: for. See D-066.
+#:
+#: Substituted rather than solved by embedding a font: the only local font
+#: carrying the rupee sign is a macOS system font, and embedding it would make
+#: this script produce different output on a different machine, or none at
+#: all. "Rs" is idiomatic in Indian banking and renders everywhere.
+UNRENDERABLE = {
+    "\u20b9": "Rs ",   # rupee sign
+    "\u2265": ">=",
+    "\u2264": "<=",
+    "\u2192": "->",
+    "\u2190": "<-",
+    "\u00d7": "x",
+    "\u2713": "yes",
+    "\u2717": "no",
+    "\u25a0": "",
+}
+
+
+def renderable(text: str) -> str:
+    """Replace what the font cannot draw, and collapse the double space that
+    "Rs " leaves when it already had one after it."""
+    for bad, good in UNRENDERABLE.items():
+        text = text.replace(bad, good)
+    return text.replace("Rs  ", "Rs ")
+
+
+def assert_renderable(text: str) -> None:
+    """Fail loudly on anything still outside the font's encoding.
+
+    A box in a document that goes to someone else is worse than a crash here,
+    and this is the check that was missing.
+    """
+    unknown = sorted({
+        ch for ch in text
+        if not _encodable(ch)
+    })
+    if unknown:
+        listed = ", ".join(f"U+{ord(c):04X} {c!r}" for c in unknown)
+        raise SystemExit(
+            f"  these characters cannot be drawn by the built-in fonts: {listed}\n"
+            f"  add them to UNRENDERABLE in {Path(__file__).name}"
+        )
+
+
+def _encodable(ch: str) -> bool:
+    try:
+        ch.encode("cp1252")
+    except UnicodeEncodeError:
+        return False
+    return True
+
+
 def footer(canvas, doc) -> None:
     canvas.saveState()
     canvas.setFont("Helvetica", 7.6)
     canvas.setFillColor(DIM)
-    canvas.drawString(18 * mm, 12 * mm, "Collections Voice Agent \u00b7 manual test script")
+    canvas.drawString(18 * mm, 12 * mm, f"Collections Voice Agent \u00b7 {LABEL}")
     canvas.drawRightString(A4[0] - 18 * mm, 12 * mm, f"{doc.page}")
     canvas.restoreState()
 
 
 def main() -> int:
+    global SOURCE, OUT, LABEL
+    if len(sys.argv) > 1:
+        SOURCE = Path(sys.argv[1])
+    if len(sys.argv) > 2:
+        OUT = Path(sys.argv[2])
+    if len(sys.argv) > 3:
+        LABEL = sys.argv[3]
     if not SOURCE.exists():
         print(f"missing {SOURCE}")
         return 1
@@ -270,11 +341,12 @@ def main() -> int:
         pagesize=A4,
         leftMargin=18 * mm, rightMargin=18 * mm,
         topMargin=16 * mm, bottomMargin=18 * mm,
-        title="Collections Voice Agent - manual test script",
+        title=f"Collections Voice Agent - {LABEL}",
         author="Collections Voice Agent",
     )
-    doc.build(convert(SOURCE.read_text(encoding="utf-8"), st), onLaterPages=footer,
-              onFirstPage=footer)
+    source = renderable(SOURCE.read_text(encoding="utf-8"))
+    assert_renderable(source)
+    doc.build(convert(source, st), onLaterPages=footer, onFirstPage=footer)
     print(f"  wrote {OUT}")
     return 0
 

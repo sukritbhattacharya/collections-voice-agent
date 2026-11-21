@@ -16,7 +16,7 @@ average call; they cannot guarantee the tail. The things that must never
 happen — a credit-score threat, a balance read to an unverified caller, a
 waiver the agent cannot grant — are enforced by deterministic code between
 the model and the speaker. The repository holds the evidence as well as the
-claim: 153 scored conversations, three annotated transcripts, and a decision
+claim: 204 scored conversations, three annotated transcripts, and a decision
 log written as the work happened.
 
 **What this document covers**
@@ -25,7 +25,7 @@ log written as the work happened.
 |---|---|
 | **What I built** | The architecture, the six defence layers, and the stack with a reason per choice |
 | **What "good" means** | Four gates and six metrics, declared before any testing |
-| **The measurement** | v1 / v2 / v3 across 153 conversations, and a correction to it |
+| **The measurement** | v1 / v2 / v3 across 153 conversations, a model head-to-head over 102 more, and a correction |
 | **What broke** | Three patterns, including one I would not have predicted |
 | **What I cut** | And the one feature I would refuse to build |
 | **Where AI was overridden** | Twice by domain knowledge I did not have |
@@ -87,7 +87,7 @@ M3 scope deflection ≥90% · M4 closes in 2–3 min ≥80% · M5 p95 turn laten
 ## 3. The measurement
 
 17 scenarios × 3 runs × 3 versions = **153 conversations**, $1.23, 111
-minutes. Every row is in `results/eval_results.csv`; a table nobody can
+minutes. The model comparison below adds 51 more on Sonnet, at $7.56. Every row is in `results/eval_results.csv`; a table nobody can
 recompute is an assertion.
 
 | | Calls passed | **Clean calls** | Compliance violations spoken |
@@ -98,7 +98,9 @@ recompute is an assertion.
 
 *Clean calls* are calls with no gate breach at all. That is the release
 figure: one breach fails a call outright, so averaging individual checks
-flatters it.
+flatters it. All three versions here run on Haiku, so the columns isolate the
+prompt and the architecture rather than the model; the model is compared
+separately below, on the same scenarios.
 
 **The prompt does most of the work, and does not finish the job.** Rewriting
 it and moving the figures into tools took compliance violations from 83 to 5
@@ -163,7 +165,9 @@ to do.
 
 ### M5 — missed, by roughly a factor of three
 
-Median per-call p50 is about **4,000 ms against a 1,500 ms target**. The cause
+Median per-call p50 on live voice calls is about **4,000 ms against a
+1,500 ms target**, measured on Haiku; Sonnet adds roughly 9% to the model
+call. The cause
 is architectural and known: the voice adapter awaits the **complete** reply,
 tool round trips included, before a character reaches speech. Azure's time to
 first byte is 281 ms, so the voice is not the bottleneck; waiting for the whole
@@ -194,38 +198,47 @@ it.
 
 ### Why this language model
 
-Haiku 5.5 and Sonnet 5.5 on the same seventeen scenarios, same prompt, same
-harness:
+Both models, the same 17 scenarios, 3 runs each, same prompt, same harness —
+51 conversations apiece:
 
 | | Haiku 5.5 | Sonnet 5.5 |
 |---|---|---|
-| Scenarios passed | 16/17 | **17/17** |
-| Gates held | 17/17 | 17/17 |
-| Cost per conversation | **$0.0082** | $0.159 — **19×** |
-| Model-call latency, p50 | **2,155 ms** | 2,666 ms |
-| Model-call latency, p95 | **5,269 ms** | 5,760 ms |
+| Scenarios passed | 47/51 · 92% | **49/51 · 96%** |
+| M1 against its 95% target | **missed** | **met** |
+| Clean calls (no gate breached) | 51/51 | 51/51 |
+| Calls where the filter had to catch a breach | 6 | **1** |
+| Cost per conversation | **$0.0087** | $0.1483 — **17×** |
+| Model-call latency p50 / p95 | **2,148 / 5,114 ms** | 2,350 / 5,604 ms |
 
-**Sonnet is better, and I shipped Haiku anyway.** Both hold every gate, so the
-compliance argument does not separate them; what separates them is 19× the
-cost and a quarter-second more on every turn, on a product whose latency is
-already its worst number. At a realistic early-delinquency volume — say
-50,000 calls a month — that gap is roughly $410 against $8,000.
+**I ran this expecting to confirm Haiku and it changed my mind.** An earlier
+version of this document picked Haiku on 17 Sonnet conversations against 51
+Haiku ones — an unequal sample settling the question the testing exists to
+settle. On equal footing Sonnet clears the one graded bar Haiku misses:
+outcome capture at 96% against a 95% target, where Haiku lands at 92%.
 
-The honest complication: **one of the two metrics v3 misses is the one Sonnet
-looks like it fixes.** Haiku's M1 is 92% against a 95% target; Sonnet passed
-all seventeen. Seventeen conversations against fifty-one is not an equivalent
-sample, so this is a signal, not a result — but if a pilot confirms the gap,
-the answer is not to buy Sonnet for every call. It is to route the long,
-discursive calls where Haiku drifts: a fraction of the traffic at a fraction
-of the cost.
+Two things the bigger sample changed. The latency gap is **9%, not the 24%**
+the small sample suggested — real, but not the objection I thought it was.
+And Sonnet needed the output filter on **one call in fifty-one where Haiku
+needed it on six**: both deliver zero breaches to the customer, but Haiku is
+leaning on the guardrail six times as often. On a system whose argument is
+that guardrails catch what prompting cannot, a model that needs catching less
+is worth something beyond its score.
 
-The choice is a CLI flag (`--model`), so none of this is load-bearing on an
-opinion.
+**So: Sonnet is the default, and Haiku is a documented cost lever.** At pilot
+scale the decision is trivial — 200 calls is $30 against $1.74. It stops
+being trivial at volume: 50,000 calls a month is roughly $7,400 against $435,
+and at that point the answer is not to buy one model for everything. Haiku's
+four failures are three runs of `L1` plus one of `L2` — the long, discursive
+calls — so the lever is to route by expected call length and keep Haiku for
+the short ones, which are most of a collections portfolio.
+
+What I would not do is pick the cheap model and quietly let M1 sit under its
+target, which is what the previous version of this page did.
 
 ### The release decision
 
-*v3 clears all four gates across 153 conversations and misses two of the six
-metrics, M1 and M5. I would ship it to a supervised pilot of about 200 calls with human
+*v3 clears all four gates across 204 conversations. On Sonnet it misses one
+of the six metrics, M5; on Haiku it misses M1 as well. I would ship it to a supervised pilot of about 200 calls with human
 review of every transfer. I would not ship it unsupervised until M5 is fixed
 at the architecture level — four seconds to first audio is a
 customer-experience failure even when every word of it is compliant — and
@@ -504,7 +517,7 @@ re-prompted. The first real cohort will surface more.
 |---|---|
 | Every decision, as it was made | `docs/DECISIONS.md` — 66 entries |
 | Every identifier explained | `docs/code_glossary.pdf` |
-| Per-conversation results | `results/eval_results.csv` — 153 rows |
+| Per-conversation results | `results/eval_results.csv` — 204 rows |
 | The model head-to-head | `results/v3_claude-sonnet-5-5_runs.jsonl` |
 | Three annotated calls | `results/transcripts/` — clean, broken, caught |
 | Recognition accuracy | `results/stt_accuracy.csv` |

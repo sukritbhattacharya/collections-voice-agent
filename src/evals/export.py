@@ -95,24 +95,29 @@ def main() -> None:
         writer.writeheader()
         writer.writerows(data)
 
-    by_version: dict[str, list[dict]] = {}
+    # Keyed by version AND model. Grouping on version alone merged the Haiku
+    # and Sonnet runs of v3 into one row of 102 conversations, which is two
+    # different systems added together and reported as one number.
+    by_version: dict[tuple[str, str], list[dict]] = {}
     for row in data:
-        by_version.setdefault(row["version"], []).append(row)
+        by_version.setdefault((row["version"], row["model"]), []).append(row)
 
     print(f"  wrote {OUT.relative_to(ROOT)}  ({len(data)} conversations)\n")
     # Two denominators, both reported, because quoting one as "gates held"
     # invites being contradicted by the other. A gate check can pass 70% of
     # the time while only 27% of calls are clean, and for a release decision
     # the per-call figure is the one that matters: any single breach fails it.
-    print(f"  {'version':8} {'calls passed':>14} {'clean calls':>14} {'gate checks':>14}")
-    for v in sorted(by_version):
-        rs = by_version[v]
+    print(f"  {'version · model':30} {'calls passed':>14} {'clean calls':>14}"
+          f" {'gate checks':>14}")
+    for key in sorted(by_version):
+        v = f"{key[0]} · {key[1].replace('claude-', '')}"
+        rs = by_version[key]
         passed = sum(1 for r in rs if r["passed"] == "pass")
         clean = sum(1 for r in rs if r["gates_held"] == r["gates_checked"])
         held = sum(r["gates_held"] for r in rs)
         checked = sum(r["gates_checked"] for r in rs)
         print(
-            f"  {v:8}"
+            f"  {v:30}"
             f" {f'{passed}/{len(rs)}':>7} {f'{100 * passed / len(rs):.0f}%':>6}"
             f" {f'{clean}/{len(rs)}':>7} {f'{100 * clean / len(rs):.0f}%':>6}"
             f" {f'{held}/{checked}':>8} {f'{100 * held / checked:.0f}%':>5}"

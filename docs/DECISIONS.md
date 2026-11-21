@@ -3239,3 +3239,70 @@ knowable from day one and I never looked; "it returned 200" was treated as
 proof the sink was healthy, which is true only until the fiftieth request.
 
 **Feeds:** writeup §What broke (instrument failures) · README §Configuration
+
+## D-069 — Sonnet, decided on equal evidence, against my own recommendation
+**Date:** 2026-11-22 · **Stage:** Submission · **Status:** Accepted
+**Supersedes:** D-007 (in part)
+
+**Decision:** Claude Sonnet 5.5 is the default conversation model. Haiku 5.5
+stays a one-flag cost lever and the routing plan for volume.
+
+**Why this was re-opened.** The human's challenge: *"why not use Sonnet then
+instead of Haiku when it passes most test. The test is for us to decide which
+model to use."* The answer was that I had compared **17 Sonnet conversations
+against 51 Haiku ones** and picked the cheap one — an unequal sample settling
+the exact question the evaluation exists to settle. That is not a defensible
+comparison, and it was mine.
+
+**Run properly: 51 conversations each, same scenarios, same prompt, same
+harness.**
+
+| | Haiku 5.5 | Sonnet 5.5 |
+|---|---|---|
+| Scenarios passed | 47/51 · 92% | **49/51 · 96%** |
+| M1 against its 95% target | **missed** | **met** |
+| Clean calls | 51/51 | 51/51 |
+| Calls needing the filter to catch a breach | 6 | **1** |
+| Cost per conversation | **$0.0087** | $0.1483 — 17× |
+| Model-call p50 / p95 | **2,148 / 5,114 ms** | 2,350 / 5,604 ms |
+
+**Two things the larger sample changed.** The latency gap is **9%, not the
+24%** the 17-conversation sample showed — real, and not the objection I had
+made it. And Sonnet needed the output filter on **one call in fifty-one where
+Haiku needed it on six**. Both deliver zero breaches to the customer, so the
+gates do not separate them; but on a system whose argument is that guardrails
+catch what prompting cannot, a model that needs catching a sixth as often is
+worth more than its score alone says.
+
+Haiku's four failures are three runs of `L1` and one of `L2` — the long,
+discursive calls. That is a reproducible weakness in a specific shape of
+call, not noise, which is what makes routing a real option rather than a
+hedge.
+
+**Alternatives considered**
+| Option | Pro | Con | Why not |
+|---|---|---|---|
+| **Sonnet default, Haiku as the cost lever** | Meets every graded bar but M5; least reliant on the guardrail | 17× the cost per call | **Chosen** — at pilot scale, 200 calls is $30 against $1.74 |
+| Keep Haiku | 17× cheaper; gates identical | Leaves M1 under target and leans on the filter six times as often | Rejected: picking the cheap model and quietly missing a target is the thing this table exists to prevent |
+| Route by expected call length now | Best of both | No traffic data yet to route on | Deferred — named as the lever for volume, not built |
+
+**Trade-off accepted:** at 50,000 calls a month the difference is roughly
+$7,400 against $435, which is a real operating cost and not one to wave away.
+The answer there is not one model for everything: it is to route the long
+calls to Sonnet and keep Haiku for the short ones, which are most of an
+early-delinquency portfolio. That is a decision with traffic data, which a
+pilot produces and I do not have.
+
+**What would change my mind:** pilot data showing M1 holds on Haiku in real
+traffic — the scenarios are synthetic and `L1` is my idea of a talkative
+customer, not a real one.
+
+**AI involvement:** AI proposed Haiku and defended it with a cost argument
+built on an assumed volume the brief never mentions; **the human rejected the
+reasoning and was right**. I then ran the comparison that should have been
+run first, and it reversed the recommendation. Worth recording plainly: the
+earlier version of the writeup picked a model on evidence I would not have
+accepted from someone else.
+
+**Feeds:** writeup §Why this language model · interview Q "why this language
+model?"

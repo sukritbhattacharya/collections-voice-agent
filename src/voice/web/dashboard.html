@@ -22,23 +22,32 @@
        four categories with single-digit counts would be decoration. -->
   <section class="tiles" id="tiles"></section>
 
-  <section class="split">
-    <div class="feed-wrap">
-      <h2 class="h2">Calls <span class="muted" id="count"></span></h2>
-      <div id="feed" class="feed" role="list"></div>
-      <p id="empty" class="empty">
-        No calls yet. Open the caller, talk to the agent, and the outcome
-        appears here the moment the call ends.
-      </p>
-    </div>
-
-    <aside class="detail" id="detail" hidden>
-      <h2 class="h2">Call detail</h2>
-      <div id="detail-body"></div>
-    </aside>
+  <section class="feed-wrap">
+    <h2 class="h2">Calls <span class="muted" id="count"></span></h2>
+    <div id="feed" class="feed" role="list"></div>
+    <p id="empty" class="empty">
+      No calls yet. Open the caller, talk to the agent, and the outcome
+      appears here the moment the call ends.
+    </p>
   </section>
 
 </main>
+
+<!-- The call opens in a sheet over the page rather than below the list. A
+     thirty-turn transcript rendered inline pushes the queue off screen, so
+     reading one call means losing your place in the others. -->
+<div class="scrim" id="scrim" hidden></div>
+
+<aside class="sheet" id="detail" hidden aria-labelledby="sheet-title" role="dialog" aria-modal="true">
+  <header class="sheet__bar">
+    <div>
+      <h2 class="h2" id="sheet-title">Call detail</h2>
+      <p class="sheet__sub muted" id="sheet-sub"></p>
+    </div>
+    <button class="sheet__close" id="sheet-close" type="button" aria-label="Close call detail">&times;</button>
+  </header>
+  <div class="sheet__body" id="detail-body"></div>
+</aside>
 <script src="dashboard.js"></script>
 </body>
 </html>

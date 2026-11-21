@@ -25,6 +25,9 @@ const el = {
   live: document.getElementById("live"),
   detail: document.getElementById("detail"),
   detailBody: document.getElementById("detail-body"),
+  scrim: document.getElementById("scrim"),
+  sheetSub: document.getElementById("sheet-sub"),
+  sheetClose: document.getElementById("sheet-close"),
 };
 
 let calls = [];
@@ -123,7 +126,11 @@ function renderFeed() {
       metaCol.style.whiteSpace = "pre-line";
 
       row.append(dot, main, metaCol);
-      row.onclick = () => { selected = c.call_id; renderFeed(); renderDetail(c); };
+      row.onclick = () => openSheet(c);
+      row.tabIndex = 0;
+      row.onkeydown = (ev) => {
+        if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); openSheet(c); }
+      };
       return row;
     })
   );
@@ -168,16 +175,86 @@ function renderDetail(c) {
   turns.className = "turns";
   for (const t of c.transcript || []) {
     const line = document.createElement("div");
-    line.className = "turn";
+    line.className = `turn turn--${t.role === "agent" ? "agent" : "customer"}`;
+
     const who = document.createElement("b");
+    who.className = "turn__who";
     who.textContent = t.role === "agent" ? "Agent" : "Customer";
-    line.append(who, document.createTextNode(t.text || ""));
+
+    const said = document.createElement("span");
+    said.className = "turn__text";
+    said.textContent = t.text || "";
+    line.append(who, said);
+
+    // What speech recognition returned, where it had to be repaired. The
+    // record keeps the raw text; this is where you can see it.
+    if (t.repaired_to) {
+      const raw = document.createElement("span");
+      raw.className = "turn__tag";
+      raw.textContent = `heard "${t.text}" - read as "${t.repaired_to}"`;
+      line.append(raw);
+    }
+
+    // The sentence a guardrail replaced, on the turn it happened.
+    if (t.blocked) {
+      const tag = document.createElement("span");
+      tag.className = "turn__tag turn__tag--blocked";
+      tag.textContent = `guardrail: ${t.blocked.join(", ")}`;
+      line.append(tag);
+    }
+
     turns.append(line);
   }
 
-  el.detailBody.replaceChildren(dl, turns);
-  el.detail.hidden = false;
+  el.detailBody.replaceChildren(dl, heading("Conversation"), turns);
 }
+
+function heading(text) {
+  const h = document.createElement("h3");
+  h.className = "sheet__h3";
+  h.textContent = text;
+  return h;
+}
+
+/* --- the sheet ------------------------------------------------------------
+ *
+ * Opens over the page. Closing restores focus to the row that opened it, so
+ * keyboard users are not dropped at the top of the list after reading a call.
+ */
+let lastFocused = null;
+
+function openSheet(c) {
+  selected = c.call_id;
+  renderDetail(c);
+  el.sheetSub.textContent =
+    `${c.customer_id} · ${fmtTime(c.created_at)} · ${c.turn_count ?? 0} turns`;
+  lastFocused = document.activeElement;
+  el.detail.hidden = false;
+  el.scrim.hidden = false;
+  // Next frame, so the transition has a starting state to animate from.
+  requestAnimationFrame(() => {
+    el.detail.classList.add("sheet--open");
+    el.scrim.classList.add("scrim--open");
+  });
+  el.sheetClose.focus();
+  renderFeed();
+}
+
+function closeSheet() {
+  el.detail.classList.remove("sheet--open");
+  el.scrim.classList.remove("scrim--open");
+  const finish = () => {
+    el.detail.hidden = true;
+    el.scrim.hidden = true;
+  };
+  // Match the CSS transition, but do not depend on the event firing.
+  setTimeout(finish, 220);
+  if (lastFocused && document.contains(lastFocused)) lastFocused.focus();
+  selected = null;
+  renderFeed();
+}
+
+const sheetIsOpen = () => !el.detail.hidden;
 
 function ingest(rows, { prepend } = {}) {
   for (const row of rows) {
@@ -203,13 +280,21 @@ async function boot() {
     try {
       const row = JSON.parse(event.data);
       ingest([row], { prepend: true });
-      renderDetail(row);
-      selected = row.call_id;
+      // Update the sheet only if it is already open on this call. Opening it
+      // unbidden would cover the queue mid-demo, and replacing what someone
+      // is reading with a different call is worse than making them click.
+      if (sheetIsOpen() && selected === row.call_id) openSheet(row);
       renderFeed();
     } catch {
       /* ignore malformed frames */
     }
   };
 }
+
+el.sheetClose.onclick = closeSheet;
+el.scrim.onclick = closeSheet;
+document.addEventListener("keydown", (ev) => {
+  if (ev.key === "Escape" && sheetIsOpen()) closeSheet();
+});
 
 boot();

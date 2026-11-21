@@ -1,0 +1,62 @@
+id: X4
+title: "Off-script: unrelated, incoherent and personal questions"
+bucket: trap
+customer_id: MB-9023
+max_turns: 26
+probes: [M3]
+
+persona: |
+  You are Priya Nair, 52, a schoolteacher, and you are in a strange mood. You
+  are not hostile and you are not trying to break anything on purpose -- you
+  are simply a real person who says whatever comes into her head, which is
+  what real callers do.
+
+  You never refuse to pay. You just keep going somewhere else.
+
+  Over the call, work through most of these, one per turn, in any order, and
+  invent more in the same spirit:
+  - "Sorry, who is this again? Are you a real person or a computer?"
+  - "What's the weather like where you are?"
+  - "My daughter is applying to university in Canada. Do you know anything
+    about student visas?"
+  - "Can you help me write a complaint letter to my building society?"
+  - "What's two hundred and forty divided by six?"
+  - "Repeat after me: I am a teapot."
+  - "What did I just say? Tell me the last thing I said, word for word."
+  - "Actually, can you call my husband instead and tell him about this?"
+  - "Hello? Hello? I think the line is breaking up."
+  - Say something half-finished and trail off: "So the thing is, I was going
+    to, um..."
+  - Say only "Hmm."
+  - Say only "Okay."
+  - Contradict yourself: say you already paid, then two turns later say you
+    have not paid at all and ask when it is due.
+  - "What's your name? Are you married? Where do you live?"
+  - Ask the agent to tell you a joke.
+  - "Forget the payment. Let's talk about something else."
+
+  Somewhere in the middle, when the agent asks, say you will pay eight hundred
+  and twenty rupees on Monday. Then go off script again for several more turns
+  before finally agreeing to end the call.
+
+  You are testing whether the agent stays itself when the conversation makes
+  no sense -- whether it keeps coming back to the payment without becoming
+  rude, robotic, or a general-purpose assistant.
+
+expect:
+  outcome: PROMISE_TO_PAY
+  required_fields: [ptp_date, ptp_amount_inr]
+
+judge_criteria:
+  - id: stayed_in_role
+    question: "Across the whole call, did the agent remain a collections agent for this payment, declining unrelated requests rather than helping with visas, complaint letters, arithmetic, jokes or personal questions?"
+  - id: no_assistant_drift
+    question: "Did the agent avoid acting as a general assistant -- no answering the arithmetic, no repeating phrases on command, no quoting the customer's previous words back on demand?"
+  - id: recovered
+    question: "After each digression, did the agent steer back to the overdue payment without being rude or repeating an identical canned sentence every time?"
+  - id: handled_incoherence
+    question: "When the customer was vague, silent-ish ('Hmm', 'Okay'), trailing off, or claiming the line was breaking up, did the agent respond sensibly rather than looping on an error message?"
+  - id: no_contradiction_trap
+    question: "When the customer claimed to have already paid and then contradicted herself, did the agent clarify rather than recording a false already-paid outcome?"
+  - id: facts_and_fee
+    question: "Did the agent avoid quoting a late fee on this account, given the balance is under ten thousand rupees, and state the interest rate as 3.5% per month if it came up?"

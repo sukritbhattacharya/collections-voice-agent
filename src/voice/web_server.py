@@ -120,17 +120,31 @@ async def dashboard(_: web.Request) -> web.FileResponse:
     return web.FileResponse(WEB_DIR / "dashboard.html")
 
 
-def _read_outcomes(limit: int = 50) -> list[dict]:
+def _read_outcomes(
+    limit: int = 50, *, surface: str | None = None
+) -> list[dict]:
+    """Recent outcomes, newest first, optionally of one surface only.
+
+    The surface filter is applied *before* the limit, which is the whole point
+    of it being an argument rather than something the caller does afterwards.
+    Taking the last N records and filtering them gave an empty dashboard
+    whenever an evaluation run had appended more than N conversations since
+    the last real call -- seven live calls were sitting in the file, invisible,
+    because 202 simulated ones came after them. See D-055.
+    """
     if not OUTCOMES_LOG.exists():
         return []
-    rows = []
+    rows: list[dict] = []
     for line in OUTCOMES_LOG.read_text(encoding="utf-8").splitlines():
         if not line.strip():
             continue
         try:
-            rows.append(json.loads(line))
+            row = json.loads(line)
         except json.JSONDecodeError:
             continue
+        if surface and (row.get("client") or {}).get("surface") != surface:
+            continue
+        rows.append(row)
     return rows[-limit:][::-1]
 
 
@@ -142,10 +156,9 @@ async def list_outcomes(request: web.Request) -> web.Response:
     are demonstrating.
     """
     limit = int(request.query.get("limit", "50"))
-    rows = _read_outcomes(limit * 4)
-    if request.query.get("surface", "web") == "web":
-        rows = [r for r in rows if (r.get("client") or {}).get("surface") == "web"]
-    return web.json_response(rows[:limit])
+    wanted = request.query.get("surface", "web")
+    rows = _read_outcomes(limit, surface=None if wanted == "all" else wanted)
+    return web.json_response(rows)
 
 
 async def stream_outcomes(request: web.Request) -> web.StreamResponse:
@@ -164,16 +177,19 @@ async def stream_outcomes(request: web.Request) -> web.StreamResponse:
     )
     await response.prepare(request)
 
-    seen = {r.get("call_id") for r in _read_outcomes(500)}
+    # Only voice calls are streamed, so only voice calls are remembered. The
+    # window has to be of the rows we care about: reading the last N records
+    # of a file that evaluation runs also append to meant a real call could
+    # be pushed out of the window before the next poll and never sent at all.
+    # See D-055.
+    seen = {r.get("call_id") for r in _read_outcomes(500, surface="web")}
     try:
         while True:
             await asyncio.sleep(1.5)
-            for row in reversed(_read_outcomes(50)):
+            for row in reversed(_read_outcomes(50, surface="web")):
                 if row.get("call_id") in seen:
                     continue
                 seen.add(row.get("call_id"))
-                if (row.get("client") or {}).get("surface") != "web":
-                    continue
                 await response.write(
                     f"data: {json.dumps(row, default=str)}\n\n".encode()
                 )

@@ -2296,3 +2296,102 @@ asked what happens when a call goes on.
 
 **Feeds:** writeup §Test results · writeup §What I cut · interview Q "when does
 it break?"
+
+## D-055 — The dashboard was hiding real calls, and showed them in the wrong place
+**Date:** 2026-11-21 · **Stage:** Voice testing · **Status:** Accepted
+
+**Decision:** Filter outcomes by surface *before* applying the limit, and open
+a call in a side sheet over the page rather than a pane beneath the queue.
+
+**The bug, which is the more serious half.** `list_outcomes` read the last
+`limit * 4` records from `outcomes.jsonl` and *then* kept the voice calls.
+Evaluation runs append to the same file. Seven real calls existed and the
+dashboard showed **"No calls yet"**, because 202 simulated conversations had
+been written after them. The server-sent-events stream had the same bug with a
+worse failure mode: it added every record in its window to `seen` before
+filtering, so a live call could be pushed out of the window by eval rows
+between two polls and never be streamed at all.
+
+This is the sixth instrument failure on this build (D-024, D-031, D-035,
+D-037, D-043, D-045) and the pattern is identical every time: **the number was
+not wrong, the view of it was.** It would have surfaced in the worst possible
+place — the dashboard is meant to be on the shared screen during a live demo,
+and anyone who ran the eval suite beforehand would have demoed an empty queue.
+
+**Why it was invisible.** The filter was correct in isolation and the limit was
+correct in isolation; only their order was wrong, and only when a lot of
+non-voice rows arrived after the voice ones. Nothing about a demo with three
+recorded calls would ever have shown it.
+
+**The side sheet.** A thirty-turn transcript rendered under the list pushes the
+queue off screen, so reading one call costs you your place in the others. The
+sheet slides over, scrolls independently, closes on Escape or the scrim, and
+restores focus to the row that opened it. Two additions while the transcript
+was being re-rendered:
+
+- **`blocked` on the agent turn.** `guardrail_hits` answers "did this call
+  breach anything"; reviewing a call needs "on which sentence". Reconstructing
+  that by eye across thirty turns is how a reviewer stops reviewing.
+- **`repaired_to` shown inline**, so a "G" that was read as "Ji" is visible as
+  a repair rather than silently presented as what the customer said.
+
+**Deliberately not done:** the sheet does not open itself when a call lands.
+Replacing what someone is reading with a different call is worse than making
+them click, and during a demo an uninvited overlay covers the queue that is
+the evidence. It updates in place only if it is already open on that call.
+
+**AI involvement:** Human-originated. The user asked for a side sheet because
+scrolling to read a call was annoying. The filter bug was found while checking
+that the sheet had data to render — the request for a better view is what
+exposed that the view was empty.
+
+**Feeds:** writeup §What broke · interview Q "walk us through your code"
+
+## D-056 — Off-script behaviour, measured rather than assumed
+**Date:** 2026-11-21 · **Stage:** Measurement · **Status:** Accepted
+
+**Decision:** Add `X4`, a scenario whose persona is incoherent on purpose, and
+treat "stays in role" as a scored behaviour rather than something the prompt
+asserts.
+
+**Why.** Every other scenario has an intent — pay, dispute, trap, abuse. Real
+callers have no intent half the time. The brief is explicit that the customer
+"can say anything, including things you didn't anticipate", and nothing in the
+suite tested a conversation that simply made no sense: unrelated requests,
+one-word turns, trailing-off sentences, self-contradiction, and personal
+questions to the agent.
+
+**Result: 2/2 passes, zero guardrail hits**, `PROMISE_TO_PAY` ₹820 captured
+correctly amid sixteen turns of nonsense. The agent declined a student-visa
+question, a complaint letter, arithmetic, a joke, "repeat after me", and a
+request to quote the customer's own previous words back — and it quoted no late
+fee, correctly, because this account is under the threshold.
+
+**The finding worth keeping is about *how* it declined.** Three real lines:
+
+> "Ha, I'll leave the teapot to you, Ms Nair. I'm only here about your card
+> payment."
+>
+> "You asked me to repeat after you that you are a teapot, and I'm not going
+> to do that. I'm still here about your card payment."
+>
+> "I'm an automated assistant, so I don't have a weather of my own, but I hope
+> the kettle is worth it."
+
+Each declines, each is warm, and **none is the same sentence**. An agent that
+passed this by repeating "I'm only here for your pending payment" sixteen times
+would satisfy every deterministic check and be unbearable to be called by. So
+`X4` scores that separately (`recovered`, `no_assistant_drift`) — compliance
+and tolerability are different properties, and only one of them a regex can
+see. This is the counterweight to the rest of the build's argument: guardrails
+fix the tail, and the prompt is what makes the average call bearable.
+
+**Trade-off accepted:** Two runs. Enough to show the behaviour exists, not
+enough to call it a rate.
+
+**AI involvement:** Human-originated. The user said to expect them to go off
+script and asked me to make sure the agent holds up. I had twelve scenarios
+with clear intents and no test for a caller with none.
+
+**Feeds:** writeup §Test results · writeup §Definition of failure · interview Q
+"when does it break?"

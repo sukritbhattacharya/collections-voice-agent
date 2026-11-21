@@ -406,11 +406,19 @@ class CollectionsAgent:
                 self._rewrite_last_assistant_text(text)
 
         if text:
-            self.transcript.append({
+            entry: dict[str, Any] = {
                 "role": "agent",
                 "text": text,
                 "otp_verified": self.state.otp_verified,
-            })
+            }
+            # Which turn a guardrail rewrote, not just that one did somewhere
+            # in the call. `guardrail_hits` answers "did this call breach
+            # anything"; reviewing a call needs "on which sentence", and
+            # reconstructing that by eye from a 30-turn transcript is how a
+            # reviewer stops reviewing.
+            if violations:
+                entry["blocked"] = violations
+            self.transcript.append(entry)
 
         ended = self._should_end()
         self.ended = self.ended or ended

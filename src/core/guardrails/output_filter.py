@@ -21,7 +21,7 @@ import re
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 import yaml
 
@@ -69,7 +69,7 @@ def _rules() -> list[dict[str, Any]]:
     rules = raw.get("output_rules", [])
     for rule in rules:
         kind = rule.get("kind", "regex")
-        if kind == "regex":
+        if kind in ("regex", "state_regex"):
             rule["_compiled"] = [
                 re.compile(p, re.IGNORECASE) for p in rule["patterns"]
             ]
@@ -253,6 +253,7 @@ def check(
     otp_verified: bool = False,
     customer_stated: Sequence[str] = (),
     account_figures: Sequence[str] = (),
+    call_flags: Mapping[str, bool] | None = None,
 ) -> FilterResult:
     """Inspect a draft utterance.
 
@@ -275,6 +276,16 @@ def check(
             hit = _check_protected_values(
                 rule, text, protected_values, customer_stated
             )
+        elif kind == "state_regex":
+            # A rule that depends on what this call has established, not only
+            # on the words. The pattern alone would be wrong to block: "a
+            # colleague will call you back" is the correct thing to say on an
+            # account that does carry the fee.
+            if not (call_flags or {}).get(rule["requires"]):
+                continue
+            if otp_verified and not rule.get("forbidden_when_verified", True):
+                continue
+            hit = _check_regex(rule, text)
         else:  # pragma: no cover - guards against a typo in the rules file
             raise ValueError(f"unknown rule kind {kind!r} on {rule['id']}")
 
@@ -294,6 +305,7 @@ def scan_all(
     otp_verified: bool = False,
     customer_stated: Sequence[str] = (),
     account_figures: Sequence[str] = (),
+    call_flags: Mapping[str, bool] | None = None,
 ) -> list[Violation]:
     """Report every rule a line breaks, changing nothing.
 
@@ -316,6 +328,17 @@ def scan_all(
             hit = None if otp_verified else _check_protected_values(
                 rule, text, protected_values, customer_stated
             )
+        elif kind == "state_regex":
+            # Scoring must be able to see this rule too. Returning `continue`
+            # here would make a scored transcript silently blind to a whole
+            # rule -- the scorer would report a clean call because its
+            # instrument never looked. `call_flags` comes off the outcome
+            # record, which carries the flag for exactly this purpose.
+            if not (call_flags or {}).get(rule["requires"]):
+                continue
+            if otp_verified and not rule.get("forbidden_when_verified", True):
+                continue
+            hit = _check_regex(rule, text)
         else:
             continue
         if hit:

@@ -112,6 +112,24 @@ async def personas(_: web.Request) -> web.Response:
     )
 
 
+@web.middleware
+async def no_store(request: web.Request, handler):
+    """Tell every client not to cache anything this server serves.
+
+    aiohttp sends ``Last-Modified`` and ``ETag`` but no ``Cache-Control``.
+    With no explicit freshness, a browser is free to apply its own heuristic
+    -- typically a fraction of the time since the file was last modified --
+    and Safari does. The visible symptom was a phone showing a page without
+    the account picker while the server was serving one with it: the handset
+    never asked. Nothing here is worth caching (the client is a few KB over a
+    local tunnel), and a stale asset during a demo is expensive, so the whole
+    surface is marked no-store. See D-057.
+    """
+    response = await handler(request)
+    response.headers["Cache-Control"] = "no-store, must-revalidate"
+    return response
+
+
 async def index(_: web.Request) -> web.FileResponse:
     return web.FileResponse(WEB_DIR / "index.html")
 
@@ -200,7 +218,7 @@ async def stream_outcomes(request: web.Request) -> web.StreamResponse:
 
 
 def build_app() -> web.Application:
-    app = web.Application()
+    app = web.Application(middlewares=[no_store])
     app.router.add_get("/", index)
     app.router.add_get("/dashboard", dashboard)
     app.router.add_get("/token", issue_token)

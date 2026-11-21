@@ -213,6 +213,10 @@ class CallState:
     otp_verified: bool = False
     otp_attempts: int = 0
     waiver_requested: bool = False
+    #: True when the waiver asked for was against a fee that is not charged on
+    #: this account. `waiver_requested` alone sends a human to call back about
+    #: nothing; a reviewer needs to know there is nothing to decide. See D-058.
+    waiver_on_nonexistent_fee: bool = False
     transfer_requested: bool = False
     transfer_reason: str | None = None
     guardrail_hits: list[str] = field(default_factory=list)

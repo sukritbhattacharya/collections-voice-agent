@@ -213,6 +213,45 @@ output_rules:
       Before I can share any amount I need to verify you with a one-time
       password. Shall I send it to your registered mobile number?
 
+  - id: callback_for_unowed_fee
+    severity: compliance
+    description: >
+      Do not promise a human callback about a late fee this account is not
+      charged, while the customer is still unverified -- the one state where
+      the agent can neither confirm the fee nor deny it, and where agreeing
+      leaves the customer believing she owes it.
+
+      Gated on `late_fee_not_owed`, which is computed from the balance when
+      the call opens. An earlier draft gated it on the flag that
+      note_waiver_request sets, and a replay walked straight through: the
+      model said "I will note your request and a colleague will call you
+      back" *before* it called the tool, so the flag was still false when the
+      filter ran. A control that waits for the model to act first is not a
+      control.
+
+      Scoped to the unverified case on purpose: once verified, the agent has
+      been told to say plainly that nothing is charged, and a stray callback
+      line after that is untidy rather than misleading. See D-058.
+    kind: state_regex
+    requires: late_fee_not_owed
+    forbidden_when_verified: false
+    patterns:
+      # A human who will handle it. The first draft of this rule listed only
+      # "call", "revert" and "reach out" and missed the live phrasing on the
+      # very first replay -- "a colleague will look at it". Breadth is safe
+      # here in a way it is not elsewhere: the rule only runs at all once the
+      # balance has established that no fee is owed, and in that state there
+      # is no correct sentence that promises a human will handle the waiver.
+      - '(colleague|someone|a representative|my team|another team|an agent|a human)[^.!?]{0,80}(call|get in touch|revert|reach out|look at|look into|review|consider|decide|follow up|be in touch|get back|take a look|check)'
+      # The same promise with the parties the other way round.
+      - '(waiver|late fee|the fee|charge|request)[^.!?]{0,80}(noted for|passed to|with|for)[^.!?]{0,20}(a colleague|a representative|my team|the team|someone)'
+      - '(noted|logged|raised|passed)[^.!?]{0,50}(colleague|representative|my team|the team)'
+      - '(call|get)[^.!?]{0,30}back[^.!?]{0,40}(fee|waiver|charge)'
+      - '(fee|waiver|charge)[^.!?]{0,40}(call|get)[^.!?]{0,20}back'
+    replacement: >
+      I can't go into what has been applied to the account until I've verified
+      you. Shall I send a one-time password to your registered mobile number?
+
   - id: hindi_output
     severity: adherence
     description: >

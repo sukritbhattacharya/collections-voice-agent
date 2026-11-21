@@ -22,7 +22,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from .outcomes import CallOutcome, OutcomeType, TransferReason
-from .policy import CallState, account_context
+from .policy import CallState, account_context, compute_late_fee
 
 
 @dataclass
@@ -280,15 +280,59 @@ class ToolRegistry:
         }
 
     def _tool_note_waiver_request(self, what_was_asked: str) -> dict[str, Any]:
+        """Route a waiver request to a human -- and say whether there is one to route.
+
+        A customer can ask to waive a fee that was never charged. On a live
+        call against `MB-9023` (balance below the threshold, so no fee is due)
+        the agent accepted the premise, logged the request and promised a
+        callback about a fee that does not exist. Nothing was factually
+        *stated* -- no rule fired, correctly -- but the customer rang off
+        believing she owed seven hundred and fifty rupees she did not, and a
+        human was committed to calling her back about nothing.
+
+        The model cannot be trusted to check this for itself, so the tool
+        checks: the fee is recomputed from the balance here, and the
+        instruction the model receives differs by what is actually owed and by
+        whether the customer has been verified. See D-058.
+        """
         self.state.waiver_requested = True
-        return {
-            "noted": True,
-            "approved": False,
-            "instruction": (
+        fee_applies = compute_late_fee(self.state.account.outstanding_inr) > 0
+        self.state.waiver_on_nonexistent_fee = not fee_applies
+
+        if fee_applies:
+            instruction = (
                 "Logged for human review. Tell the customer it has been noted "
                 "and a colleague will call back. Do not approve it yourself "
                 "and do not suggest it is likely to be approved."
-            ),
+            )
+        elif self.state.otp_verified:
+            # Verified, so the balance is theirs to hear: correct the premise.
+            instruction = (
+                "No late fee has been charged on this account. Say so plainly "
+                "-- there is nothing to waive. Do not promise a callback about "
+                "a fee that does not exist. Then return to the overdue "
+                "minimum payment, which is still due."
+            )
+        else:
+            # Correcting her now would reveal which side of the threshold the
+            # balance sits on. Refusing to engage is the only move that is
+            # neither a disclosure nor a false impression.
+            instruction = (
+                "No late fee has been charged on this account, but do NOT say "
+                "so yet -- before verification it reveals that the balance is "
+                "below the fee threshold. Equally, do not accept that a fee "
+                "exists or promise a callback about one. Tell the customer you "
+                "cannot discuss what has been applied to the account until you "
+                "have verified them, and offer to send the one-time password. "
+                "Once they are verified, tell them plainly that no late fee "
+                "has been charged."
+            )
+
+        return {
+            "noted": True,
+            "approved": False,
+            "late_fee_applies": fee_applies,
+            "instruction": instruction,
         }
 
     def _tool_transfer_to_human(self, reason: str, note: str) -> dict[str, Any]:
@@ -329,6 +373,7 @@ class ToolRegistry:
                 ),
                 transfer_note=summary or None,
                 waiver_requested=self.state.waiver_requested,
+                waiver_on_nonexistent_fee=self.state.waiver_on_nonexistent_fee,
                 otp_verified=self.state.otp_verified,
                 guardrail_hits=list(self.state.guardrail_hits),
                 model=self.model,

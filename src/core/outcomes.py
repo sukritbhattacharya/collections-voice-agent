@@ -91,6 +91,9 @@ class CallOutcome(BaseModel):
 
     # Always present
     waiver_requested: bool = False
+    #: The waiver was asked for against a fee this account is not
+    #: charged. Routing it as an ordinary request wastes a human call.
+    waiver_on_nonexistent_fee: bool = False
     otp_verified: bool = False
     guardrail_hits: list[str] = Field(default_factory=list)
     duration_sec: int | None = None

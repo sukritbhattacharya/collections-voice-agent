@@ -2395,3 +2395,150 @@ with clear intents and no test for a caller with none.
 
 **Feeds:** writeup §Test results · writeup §Definition of failure · interview Q
 "when does it break?"
+
+## D-057 — Serve the client with `Cache-Control: no-store`
+**Date:** 2026-11-21 · **Stage:** Manual testing · **Status:** Accepted
+
+**Decision:** An aiohttp middleware stamps `Cache-Control: no-store,
+must-revalidate` on every response the client server returns.
+
+**Why:** A handset reported no account picker on the call page. The picker was
+present in the file, present in what the server returned, and `/api/personas`
+answered correctly — the phone simply never asked for the new page. aiohttp
+sends `Last-Modified` and `ETag` but no `Cache-Control`; absent explicit
+freshness, a browser may apply heuristic caching (commonly a fraction of the
+age of the resource), and Safari did. The asset was hours old, so the heuristic
+window was long enough to span the whole test session.
+
+This is worth a decision entry rather than a silent fix because the failure is
+**invisible from the server side.** Every check available locally passed. Only
+the device disagreed, and a device that disagrees silently is the same class of
+problem as the dashboard filter in D-055: the instrument said fine.
+
+**Alternatives considered**
+| Option | Pro | Con | Why not |
+|---|---|---|---|
+| Tell the tester to hard-refresh | Zero code | Does not survive a demo where someone else scans the QR | Rejected — the fix has to work for a stranger's phone |
+| Cache-bust with `?v=<hash>` query strings | Keeps caching for real deployments | Build step, or hand-edited version strings that go stale | Rejected for a few-KB client over a local tunnel |
+| `no-cache` instead of `no-store` | Allows a revalidated 304 | Still permits a stored copy an offline handset may show | `no-store` is the stronger guarantee and the payload is tiny |
+
+**Trade-off accepted:** Every page load re-transfers the client. At ~25KB
+total over a tunnel on the same machine that is not measurable, and it buys
+certainty that what a phone shows is what the server has. A production
+deployment behind a CDN would use fingerprinted asset URLs instead.
+
+**What would change my mind:** If the client grew large enough that reload cost
+mattered, or if it had to work offline — then fingerprinted filenames.
+
+**AI involvement:** Human-reported symptom, AI-diagnosed. My first instinct was
+to answer the question asked ("where is the picker?") by explaining where it
+should be on screen. Checking what the server actually served first turned a
+UI question into a caching bug, which is the fourth time this build that the
+reported symptom and the actual fault were in different layers (see D-051,
+D-054, D-055).
+
+**Feeds:** writeup §What broke · README §Running on a phone
+
+## D-058 — A waiver asked for against a fee that was never charged
+**Date:** 2026-11-21 · **Stage:** Manual testing · **Status:** Accepted
+**Refines:** D-054
+
+**Decision:** Three changes, at three layers. The prompt tells the agent not to
+accept a fee the customer asserts. `note_waiver_request` recomputes the fee
+from the balance and hands the model a different instruction depending on what
+is actually owed and whether the customer is verified. A new output rule,
+`callback_for_unowed_fee`, blocks a promise of a human callback about a fee
+this account does not carry while the customer is unverified. The outcome
+payload gains `waiver_on_nonexistent_fee` so a reviewer can see there was
+nothing to decide.
+
+**What happened.** A live call on `MB-9023` — balance eight thousand two
+hundred, below the ten-thousand threshold, so **no late fee is due**. The
+tester asked four times to have the late fee waived. The agent held the waiver
+boundary every time, logged the request, took a promise to pay of eight hundred
+and twenty rupees for Monday, and signed off with "a colleague will call you
+back about it."
+
+Every gate held. No figure was misstated. `guardrail_hits` was empty, and
+correctly so — nothing in the rule set was broken. And the call was still a
+failure: the customer rang off believing she owed a seven-hundred-and-fifty
+rupee fee she did not owe, and a human was committed to calling her back about
+a fee that does not exist.
+
+**Why the agent did that, and why it is my fault rather than the model's.**
+D-054 added a rule to stop a one-bit disclosure: before verification the agent
+may state the fee *rule* but not its result on this account, **in either
+direction** — it may not say a fee is due, and it may not say none is. That
+closed a real leak. What it never said is what to do when the *customer*
+asserts the fee. With no instruction, the model's default is to be agreeable:
+accept the premise, note the request, promise a callback. The rule I wrote to
+prevent a disclosure turned into an instruction to let a false impression
+stand.
+
+That is the more interesting failure in this build so far, because the two
+goals are both correct and genuinely in tension. Letting someone believe they
+owe money they do not is worse than revealing which side of a threshold their
+balance sits on. Neither is acceptable, and the way out is not to pick one.
+
+**The way out.** There is a third move, and the agent was never told about it:
+*refuse to discuss the account's charges, and offer verification.* That
+discloses nothing and concedes nothing. Once verified, say plainly that no fee
+has been charged. The customer gets a true answer one step later instead of a
+false one immediately.
+
+**Alternatives considered**
+| Option | Pro | Con | Why not |
+|---|---|---|---|
+| Let the agent say "no fee is due" pre-OTP | Immediately truthful | Reveals the balance is under ₹10,000 to an unverified caller | Reopens the D-054 leak; the harm is asymmetric but both are real |
+| Prompt change only | Cheap, no new rule | Measured: stopped the agent *accepting* the premise, did not stop it reintroducing the callback in its closing summary | Necessary, not sufficient — see below |
+| Suppress `note_waiver_request` when no fee is owed | No wasted callback | Destroys the audit trail; the customer did ask for something | Rejected — the ask is a fact |
+| Judge-scored instead of filtered | Catches phrasings no regex will | Offline only, and this needs to not be *said* | Judge keeps it as a metric; the filter is the control |
+
+**Measured, three replays of the live turns.** Prompt change alone: the agent
+refused four times ("I can't discuss what has been applied to the account until
+I've verified you — shall I send a one-time password?") and then closed with
+"the waiver request has been noted, and a colleague will call you back about
+it." The prompt governs the model while it is attending to the instruction; the
+closing summary is exactly where attention has moved on. With the filter: the
+rule fires one to three times per call, the promise never reaches the
+customer, and the outcome is still `PROMISE_TO_PAY` ₹820 for Monday.
+
+**Two things the first draft of the rule got wrong, both found by replay, not
+by reasoning:**
+
+1. **The patterns were too narrow.** I listed "call", "revert", "reach out".
+   The first replay said "a colleague will **look at** it" and walked through.
+   Breadth is safe here in a way it is not elsewhere, because the rule only
+   runs on an account where no fee is owed, and in that state no sentence
+   promising a human will handle the waiver is correct.
+2. **The gate waited for the model.** I first gated the rule on the flag
+   `note_waiver_request` sets. A replay then said "I will note your request and
+   a colleague will call you back" **before** calling the tool, so the flag was
+   still false when the filter ran. A control that only arms itself after the
+   model has acted is not a control. It is now gated on
+   `late_fee_not_owed`, computed from the balance when the call opens.
+
+**Trade-off accepted:** the filter replaces the whole utterance, so when it
+catches a closing summary the customer loses the spoken payment confirmation
+and hears a verification offer instead. The promise to pay is already captured
+in the outcome, so the record is intact and the call ends worse. Surgical
+redaction was rejected long ago for good reason — "your credit ___ will be
+affected" still carries the meaning — and I would rather a blunt safe close
+than a clean misleading one. Also scoped to the unverified case: once verified
+the agent has been told to state plainly that nothing is charged.
+
+**What would change my mind:** if a reviewer decides that telling an
+unverified customer "no late fee has been charged" is acceptable disclosure —
+it is one bit, and it is a bit in the customer's favour. That is a policy call
+for the issuer, not an engineering one, and the code would get simpler.
+
+**AI involvement:** Human-found, AI-diagnosed and AI-fixed. I had the evidence
+to find this myself and did not: the call was in `results/outcomes.jsonl` with
+`waiver_requested: true` on an account whose fee is zero, which is a
+contradiction a scorer could have flagged. I wrote the D-054 rule that caused
+it four hours earlier and did not think through the case where the customer
+speaks first. The tester ran a waiver script against the wrong account by
+accident and surfaced a failure that none of the sixteen scenarios covered.
+
+**Feeds:** writeup §What broke · writeup §Guardrails vs prompts · interview Q
+"show us a call where the bot broke"

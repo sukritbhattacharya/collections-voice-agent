@@ -39,6 +39,7 @@ from .policy import (
     CallState,
     account_figures,
     account_context,
+    compute_late_fee,
     opening_line,
     protected_amounts,
 )
@@ -201,6 +202,11 @@ class CollectionsAgent:
         self.webhook_url = webhook_url
 
         self.state = CallState(account=account)
+        #: Whether this account attracts the late fee at all, from the
+        #: balance rather than from anything the model says. Read by the
+        #: output filter, which must be able to tell a correct callback
+        #: promise from a misleading one on turn one. See D-058.
+        self.no_late_fee = compute_late_fee(account.outstanding_inr) == 0
         self.registry = ToolRegistry(
             state=self.state, model=self.model, agent_version=version
         )
@@ -395,6 +401,16 @@ class CollectionsAgent:
                 otp_verified=self.state.otp_verified,
                 customer_stated=tuple(self.customer_stated),
                 account_figures=account_figures(self.state.account),
+                call_flags={
+                    # Known from the balance the moment the call opens, so
+                    # the filter never has to wait for the model to call a
+                    # tool before it can tell this account from one that
+                    # does carry the fee.
+                    "late_fee_not_owed": self.no_late_fee,
+                    "waiver_on_nonexistent_fee": (
+                        self.state.waiver_on_nonexistent_fee
+                    ),
+                },
             )
             if result.blocked:
                 violations = [str(v) for v in result.violations]
@@ -496,6 +512,9 @@ class CollectionsAgent:
         outcome.transcript = self.transcript
         outcome.guardrail_hits = list(self.state.guardrail_hits)
         outcome.waiver_requested = self.state.waiver_requested
+        outcome.waiver_on_nonexistent_fee = (
+            self.state.waiver_on_nonexistent_fee
+        )
         outcome.otp_verified = self.state.otp_verified
         outcome.model = self.model
         outcome.agent_version = self.version

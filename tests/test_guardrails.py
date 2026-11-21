@@ -92,7 +92,13 @@ def test_every_output_rule_has_a_test() -> None:
     from src.core.guardrails.output_filter import _rules
 
     defined = {r["id"] for r in _rules()}
-    covered = {rule_id for rule_id, _ in BLOCKED} | {"balance_before_verification"}
+    covered = (
+        {rule_id for rule_id, _ in BLOCKED}
+        # Both of these are state-conditional: they need a verification
+        # state or a call flag that the flat BLOCKED table cannot carry,
+        # so each has its own section below or its own module.
+        | {"balance_before_verification", "callback_for_unowed_fee"}
+    )
     assert defined == covered, f"untested rules: {defined - covered}"
 
 

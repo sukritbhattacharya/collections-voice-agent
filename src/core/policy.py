@@ -211,6 +211,9 @@ class CallState:
 
     account: Account
     otp_verified: bool = False
+    #: The code has been sent, so the agent should be waiting for the
+    #: customer to read it back rather than offering again. See D-060.
+    otp_sent: bool = False
     otp_attempts: int = 0
     waiver_requested: bool = False
     #: True when the waiver asked for was against a fee that is not charged on
@@ -297,9 +300,11 @@ def account_context(state: CallState) -> dict:
             "THESE FIGURES ARE FOR YOUR USE ONLY. Do not say the outstanding "
             "balance or the minimum due out loud, and do not hint at them, "
             "until the customer is verified. You may use them to record a "
-            "payment commitment. If the customer asks how much they owe, "
-            "offer to verify them with a one-time password first. You may ask "
-            "when they can clear the overdue amount without naming it."
+            "payment commitment. Offer to verify the customer with a one-time "
+            "password early in the call, so that you can tell them the "
+            "amount and whether a late fee has been applied; offer again if "
+            "they ask what they owe. Until then you may ask when they can "
+            "clear the overdue amount without naming it."
         )
     return base
 

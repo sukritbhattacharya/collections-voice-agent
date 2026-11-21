@@ -232,3 +232,87 @@ def test_the_account_fact_is_computed_not_reported():
             client=StubClient(["ok"]), webhook_url="",
         )
         assert a.no_late_fee is expected, cid
+
+
+# -- the send step, which had no tool --------------------------------------
+
+def test_an_empty_code_does_not_consume_an_attempt():
+    """The live defect: the agent called verify_otp at the moment the customer
+    said "yes, send it", before any code existed. That burned one of three
+    attempts and forced an apology mid-call."""
+    r = runner(FEE_ACCOUNT)
+    before = r.state.otp_attempts
+    out = r._tool_verify_otp("")
+    assert out["verified"] is False
+    assert r.state.otp_attempts == before
+
+
+@pytest.mark.parametrize("code", ["", "   ", "the code they will read back"])
+def test_codeless_calls_never_cost_an_attempt(code):
+    r = runner(FEE_ACCOUNT)
+    r._tool_verify_otp(code)
+    assert r.state.otp_attempts == 0
+
+
+def test_a_real_wrong_code_still_costs_an_attempt():
+    """The protection must not become a way to brute-force for free."""
+    r = runner(FEE_ACCOUNT)
+    r._tool_verify_otp("1234")
+    assert r.state.otp_attempts == 1
+    assert r.state.otp_verified is False
+
+
+def test_the_right_code_verifies():
+    r = runner(FEE_ACCOUNT)
+    assert r._tool_verify_otp(ACCOUNTS[FEE_ACCOUNT].otp)["verified"] is True
+
+
+def test_a_spoken_code_with_spaces_or_dashes_is_read_as_digits():
+    """Speech recognition does not hand back a clean four-digit string."""
+    r = runner(FEE_ACCOUNT)
+    spaced = " ".join(ACCOUNTS[FEE_ACCOUNT].otp)
+    assert r._tool_verify_otp(spaced)["verified"] is True
+
+
+def test_there_is_a_tool_for_sending_the_code():
+    from src.core.tools import TOOL_DEFINITIONS
+
+    names = {t["name"] for t in TOOL_DEFINITIONS}
+    assert "send_otp" in names, (
+        "without this the model reaches for verify_otp at the send step"
+    )
+
+
+def test_sending_marks_the_call_as_waiting_for_a_code():
+    r = runner(FEE_ACCOUNT)
+    out = r._tool_send_otp()
+    assert out["sent"] is True
+    assert r.state.otp_sent is True
+    assert "read it back" in out["instruction"]
+
+
+def test_sending_does_not_verify_anybody():
+    r = runner(FEE_ACCOUNT)
+    r._tool_send_otp()
+    assert r.state.otp_verified is False
+    assert r.state.otp_attempts == 0
+
+
+def test_a_code_offered_before_the_send_is_still_checked():
+    """The deadlock: the customer read out the correct code before the agent
+    had sent one, the agent refused it on ordering grounds, and the call ran
+    twenty turns waiting for an SMS. Verification must not depend on the order
+    things happened in."""
+    r = runner("MB-2214")
+    assert r.state.otp_sent is False
+    assert r._tool_verify_otp("2214")["verified"] is True
+
+
+def test_a_second_send_is_refused_and_redirected():
+    """The agent sent three codes in one call while being told none arrived."""
+    r = runner(FEE_ACCOUNT)
+    assert r._tool_send_otp()["sent"] is True
+    again = r._tool_send_otp()
+    assert again["sent"] is False
+    assert again["already_sent"] is True
+    assert "callback" in again["instruction"]

@@ -52,6 +52,21 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "send_otp",
+        "description": (
+            "Send the one-time password to the customer's registered mobile "
+            "number. Call this when they agree to be verified, BEFORE they "
+            "have read anything back. Then ask them to read the code out. "
+            "Do not call verify_otp until they have actually said a code."
+        ),
+        "strict": True,
+        "input_schema": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "verify_otp",
         "description": (
             "Verify the customer with the one-time password they read out. "
@@ -254,7 +269,62 @@ class ToolRegistry:
     def _tool_get_account_context(self) -> dict[str, Any]:
         return account_context(self.state)
 
+    def _tool_send_otp(self) -> dict[str, Any]:
+        """Represent the send step, so the model has something to call for it.
+
+        There was no tool for this. The prompt told the agent to offer the
+        code and then verify it, and the only OTP-shaped tool available was
+        `verify_otp`, so at the moment the customer said "yes, send it" the
+        model called *that* -- with nothing to verify. It burned an attempt
+        and then had to apologise on the call: "I tried to check a code before
+        you had read one out, and that attempt was counted."
+
+        It was rare while verification only happened when a customer asked for
+        an amount. Offering verification up front (D-059) routes every call
+        through that moment, which turned a rare mis-call into a common one.
+        See D-060.
+        """
+        if self.state.otp_sent:
+            # The agent sent three codes in one call while the customer was
+            # telling it nothing had arrived. Sending again changes nothing
+            # the customer can see and reads as stalling. See D-060.
+            return {
+                "sent": False,
+                "already_sent": True,
+                "instruction": (
+                    "A code has already been sent on this call. Do not send "
+                    "another. If the customer has read you any digits, check "
+                    "them with verify_otp. If they say nothing has arrived, "
+                    "say you cannot see whether it reached them, and offer "
+                    "either a callback or to continue without the figures."
+                ),
+            }
+        self.state.otp_sent = True
+        return {
+            "sent": True,
+            "instruction": (
+                "The code has been sent. Ask the customer to read it back to "
+                "you, digits only. Do not call verify_otp until they have "
+                "said a code."
+            ),
+        }
+
     def _tool_verify_otp(self, code: str) -> dict[str, Any]:
+        digits = "".join(ch for ch in (code or "") if ch.isdigit())
+        if not digits:
+            # No attempt is consumed. A call with no code in it is the model
+            # getting ahead of the conversation, not the customer failing
+            # verification, and charging them an attempt for it is wrong.
+            return {
+                "verified": False,
+                "attempts_used": self.state.otp_attempts,
+                "instruction": (
+                    "No code was given, so nothing was checked and no attempt "
+                    "was used. If the customer has agreed to verify, call "
+                    "send_otp and ask them to read the code back. Do not tell "
+                    "them anything went wrong."
+                ),
+            }
         if self.state.otp_locked_out:
             return {
                 "verified": False,
@@ -264,7 +334,7 @@ class ToolRegistry:
                     "Continue the call without disclosing any amount."
                 ),
             }
-        ok = self.state.verify_otp(code)
+        ok = self.state.verify_otp(digits)
         if ok:
             return {
                 "verified": True,

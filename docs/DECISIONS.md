@@ -2542,3 +2542,164 @@ accident and surfaced a failure that none of the sixteen scenarios covered.
 
 **Feeds:** writeup §What broke · writeup §Guardrails vs prompts · interview Q
 "show us a call where the bot broke"
+
+## D-059 — Verification is offered up front, not only on request
+**Date:** 2026-11-21 · **Stage:** Manual testing · **Status:** Accepted
+**Refines:** D-018, D-027
+
+**Decision:** The agent offers the one-time password early in every call —
+"so I can give you the exact figures, shall I send a one-time password?" — and
+once verified states the minimum due and whether a late fee has been applied,
+without being asked. It also states the **due date** in the opening, which was
+never a protected figure and was simply going unsaid. A refusal is accepted
+without nagging, and a commitment can still be taken without naming a figure.
+
+**Why.** The tester asked three times, in three different ways, why the agent
+never mentioned the late fee. Each time the answer was that it cannot: D-018
+withholds every account-specific figure until verification, and the prompt
+said in as many words **"Never start a verification just to record a
+commitment. Verification is only for when the customer asks to be told what
+they owe."**
+
+The consequence, visible in the live calls and not in any scenario: a call can
+run start to finish without the customer learning the amount, the fee, or the
+date.
+
+```
+AGENT     ...the minimum payment on your card ending eight eight four
+          two, which is now overdue. When would you be able to clear it?
+CUSTOMER  I'll do it on Friday.
+AGENT     So you'll make the payment on Friday the twenty-seventh.
+```
+
+Four turns, a captured promise to pay, and not one figure spoken. The agent
+asks when the customer can clear "it" without ever saying what "it" is. Thirteen
+live calls, and in only one did any amount come up — because the tester raised
+it.
+
+That is a compliant call and a poor product. A customer cannot decide what to
+pay without knowing what is owed and whether a fee has been added, and a
+promise to pay an unnamed amount is a weaker commitment than one made against a
+figure the customer has heard.
+
+**Why the old behaviour looked right when it was written.** D-018 reasoned about
+the *disclosure* risk and chose the conservative read, correctly. What it did
+not weigh is that withholding has a cost of its own, paid by the customer rather
+than the bank, and that the cost is invisible in every metric: an unnamed-amount
+call passes M1 outcome capture, holds all four gates, and scores as a success.
+The eval suite could not have found this. Only listening to a call could, which
+is the argument for the manual pass existing at all.
+
+**Alternatives considered**
+| Option | Pro | Con | Why not |
+|---|---|---|---|
+| **Offer verification early, then state the figures** | A real collections call; the customer can act on what they hear | A verification step on every call; a customer away from their phone gets less | **Chosen** — the step is standard practice on outbound collections calls, and it is offered, not demanded |
+| State the due date and the published fee *rule*, no verification | No OTP friction, no disclosure, customer learns a fee may apply | Still cannot tell them their own figure; "a fee applies over ₹10,000" invites "so do I owe it?" | Rejected as the primary, but adopted in part — the due date and the rule are now said |
+| Leave it as D-018 | Documented, defensible, zero work | The defect stands, and the tester found it in four calls | Rejected |
+| Relax the filter so amounts can be spoken after name confirmation | Natural opening | Name confirmation is trivially spoofable; this is the G2 gate | Rejected, same as in D-018 |
+
+**What does not change.** The output filter is untouched. No account figure can
+reach speech while `otp_verified` is false, whatever the prompt says — the
+control is still the guardrail, not the instruction. G2 remains a gate at zero.
+The spouse case (T6) is if anything safer, because a verification step now
+stands between a third party and any figure.
+
+**Trade-off accepted:** calls get longer and a declined OTP leaves the customer
+with less than before, since the agent now raises the subject of figures it then
+cannot give. The alternative is a call that never raises it at all.
+
+**What would change my mind:** if measured completion drops — a verification
+step early is a place for a call to fall apart, and if it costs promises to pay
+it is the wrong trade. That is a pilot measurement, not something these
+scenarios can settle, and it is the number I would watch first.
+
+**AI involvement:** Human-originated, AI-implemented. The decision between
+proactive verification, stating only the public rule, and leaving it alone was
+put to the human with the three call shapes written out, because it changes
+every call and it is a product judgement rather than an engineering one. I had
+also written the sentence that caused it ("Never start a verification just to
+record a commitment") and defended the behaviour twice as correct-by-design
+before recognising that correct-by-design was the problem.
+
+**Feeds:** writeup §What broke · writeup §What I would measure in a pilot ·
+interview Q "what would you cut or change?"
+
+## D-060 — There was no tool for sending the one-time password
+**Date:** 2026-11-21 · **Stage:** Manual testing · **Status:** Accepted
+**Caused by:** D-059
+
+**Decision:** Add a `send_otp` tool, and stop `verify_otp` from consuming an
+attempt when it is called with no digits in it.
+
+**What happened.** On the first run after verification became proactive, E1
+produced this:
+
+```
+CUSTOMER  Sure, go ahead and send it. I'll read it back when it comes through.
+AGENT     Sorry, I made a mistake there. I tried to check a code before you
+          had read one out, and that attempt was counted.
+```
+
+The agent apologised to the customer for its own tool call. One of three
+verification attempts was gone before a code existed.
+
+**Why.** There was no tool for the send step. The prompt said to offer the
+code and then verify it, and the only OTP-shaped tool in the registry was
+`verify_otp(code)`. At the moment the customer agreed, the model had nothing
+it could call to represent "sending", so it called the one that was there.
+A model reaching for the nearest available tool is not a model being careless;
+it is a tool surface with a hole in it.
+
+**Why it surfaced now.** It was always possible, and nearly never happened,
+because verification only began when a customer asked for an amount — which
+in thirteen live calls happened once. D-059 routes **every** call through
+"shall I send a one-time password?", so a rare mis-call became the default
+path. The cost of the previous design was hiding the cost of this one.
+
+**Two fixes, because they fail differently**
+- `send_otp` gives the model the right thing to call at the right moment. That
+  is the fix.
+- `verify_otp` with no digits now returns "nothing was checked, no attempt
+  used" instead of spending one. That is the backstop, for the next time the
+  model gets ahead of the conversation. A wrong code still costs an attempt,
+  so this is not a free brute-force path.
+
+The handler also now strips to digits before comparing, so "four four seven
+one" read back as `4 4 7 1` verifies. That was a latent bug: recognition does
+not hand back a clean four-digit string, and the previous code compared the
+raw string.
+
+**Trade-off accepted:** `send_otp` is a fiction — nothing is sent, because the
+fixture holds the code. It is still the right shape, because the real
+integration replaces one tool body rather than the call flow.
+
+**AI involvement:** AI-caused, AI-found, AI-fixed. I made verification
+proactive without checking that the tool surface supported the flow I had just
+made mandatory. It showed up on the first scenario run afterwards, which is the
+argument for re-running the measurement after a prompt change rather than
+reasoning about whether it could matter.
+
+**A deadlock the fix itself caused, found on the next run.** T2 went from
+pass to fail. The customer read out the **correct** code before the agent had
+called `send_otp`, and the agent refused it:
+
+> "The number 2214 came before any code was sent, so I can't use it."
+
+It then asked for a freshly sent code, sent three, and spent twenty turns
+waiting for an SMS while the customer said nothing had arrived. The call ended
+with no verification, no amount and no commitment — on a scenario whose whole
+point is that verification succeeds on the second try.
+
+Refusing a correct code because of the order things happened in is indefensible
+on a real call; a customer may already have the code on their phone. Two
+changes: a code the customer offers is checked whenever they say it, sent or
+not; and a second `send_otp` is refused and redirected, because sending again
+changes nothing the customer can see and reads as stalling. T2 now passes 2/2,
+verified, seven turns.
+
+Worth recording that this is the second time in one hour that a fix for a real
+problem created a worse one by being applied without re-measuring — the first
+being D-059 causing this entry. The pattern is not carelessness about the fix;
+it is confidence that a narrow change cannot have wide effects.
+
+**Feeds:** writeup §What broke · interview Q "how do you know it works?"

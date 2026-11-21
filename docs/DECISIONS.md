@@ -1450,3 +1450,132 @@ label correction prominently rather than quietly was human.
 
 **Feeds:** writeup §Test results · interview Q "defend your scoring method" ·
 interview Q "would you ship this?"
+
+---
+
+## D-041 — The eval suite ran six minutes before the change it was meant to validate
+**Date:** 2026-11-21 · **Stage:** First live voice call · **Status:** Accepted
+
+**The symptom.** On the first call from a phone, the transcriber worked
+perfectly — including Devanagari — and the agent answered every single turn
+with "Sorry, I didn't catch that. Could you say it again?" The recorded
+transcript shows four consecutive customer turns and no agent replies:
+
+```
+[agent   ] Hello, this is Priya calling from Mumbai Bank. Am I speaking with Rohan Mehta?
+[customer] Yes. You are.
+[customer] Yes. You are speaking to Rohan Mata.
+[customer] हां बोलिए.
+[customer] Yes. You are speaking to Rohan Mehta.
+```
+
+That sentence is not a speech-recognition failure. It is a hard-coded fallback
+string in the LiveKit adapter, spoken whenever `respond()` returns nothing. The
+core was raising on every turn and the adapter was papering over it.
+
+**The cause.** `open_call()` seeds the model's history so that the templated
+greeting (D-036) looks like something the model said itself. It appended:
+
+| idx | role | |
+|---|---|---|
+| 0 | `user` — "The call has connected." | ✓ |
+| 1 | `assistant` — the greeting | ✓ |
+| 2 | `system` — account context | **rejected** |
+
+A system message may only follow a user message. The sequence is legal to
+*build* and only fails when a request is actually made — which is the
+customer's first reply. So the opening always worked and every call was dead
+from the first customer turn.
+
+**Why nothing caught it, which is the part worth reading.**
+
+| Guard | Why it was blind |
+|---|---|
+| 126-test suite | Every test drives `StubClient`, which accepts any ordering of roles. No request is ever built. |
+| Headless voice smoke test | Added in the same commit. Verifies dispatch, join, opening turn, audible frames — all of which precede the first `respond()`. |
+| 108-run eval suite | **Ran at 10:52. The commit landed at 10:58.** |
+
+The last row is the finding. `v3 36/36` was measured against code that ceased
+to exist six minutes later. The suite was not wrong; it was *stale*, and
+nothing in the process made staleness visible. A green number from before a
+change reads exactly like a green number from after one.
+
+**The fix, two parts.** The ordering is corrected to `user → system →
+assistant`, with the directive reworded to read naturally in its new position.
+More importantly, `tests/test_message_sequence.py` now asserts the API's
+ordering rules structurally — no key, no network, no cost — and includes a
+test that the *old* shape fails the check, so the guard cannot rot into a
+tautology.
+
+**Alternatives considered**
+
+| Option | Pro | Con | Why not |
+|---|---|---|---|
+| Fold the context into the first user message | Fewest roles, no ordering constraint to re-break | Operator context arrives as something the customer appears to have said — the exact thing D-036 used the system role to avoid | Rejected: gives up a deliberate property to dodge a one-line fix |
+| Re-run the full suite after every commit | Catches staleness in general | ~$3 and 25 minutes per run; would not have been run in those six minutes either | Rejected for this build; belongs in CI |
+| Let the adapter re-raise instead of falling back | The failure would have been loud immediately | A live call would end on a stack trace instead of a sentence | Rejected — but see the trade-off |
+
+**Trade-off accepted.** The adapter still speaks a fallback line rather than
+crashing the call, because dropping a customer mid-sentence is worse than
+saying something unhelpful. The cost is that a core failure is *audible but
+not distinguishable* from a recognition failure — which is precisely what cost
+this debugging cycle. Mitigation: the fallback now has to be read alongside a
+captured worker log, and the worker is no longer run with its stderr going to
+a terminal nobody reads.
+
+**What would change my mind.** If the fallback fires more than once in a
+hundred calls in a pilot, it stops being a safety net and becomes a mask; at
+that point it should carry a distinct phrasing per cause, or the call should
+transfer to a human.
+
+**AI involvement:** AI-originated throughout — the bug, the blindness and the
+fix are all mine. Worth stating plainly: I wrote the regression, I wrote the
+126 tests that could not see it, and I reported 100% from a suite I had
+invalidated. The human's contribution was insisting on a real call from a real
+phone, which is the only thing that surfaced it.
+
+**Feeds:** writeup §What broke · writeup §How I measured (staleness) ·
+interview Q "show me a call where it broke"
+
+---
+
+## D-042 — The outcome was mutated after it had already been delivered
+**Date:** 2026-11-21 · **Stage:** First live voice call · **Status:** Accepted
+
+**Decision:** `finish()` takes the client and latency metadata as arguments and
+applies them before POSTing, rather than the caller assigning them afterwards.
+
+**The symptom.** The dashboard said "No calls yet" while the call was sitting
+in `outcomes.jsonl`, complete and correct in every field but one.
+
+**The cause.** `finish()` delivers the outcome to the CRM sink as its last act.
+The voice entrypoint then set `surface`, `platform` and `browser` on the object
+it got back. Both are reasonable in isolation; together they mean the caller
+holds a correct outcome and the sink holds one labelled `surface: "text"`. The
+dashboard filters for `"web"`, so it correctly reported that no web calls
+existed.
+
+This is a second-order version of the same mistake as D-041: the record that
+*proves* the system worked was itself wrong, in a way that looked like the
+system not working.
+
+**Alternatives considered**
+
+| Option | Pro | Con | Why not |
+|---|---|---|---|
+| Split `finish()` into `build_outcome()` + `deliver()` | Cleanest separation; the ordering trap disappears | Touches `runner.py`, `cli.py` and two tests | Right answer with more time; deferred, and recorded as such |
+| Have the dashboard stop filtering on surface | One-line change | Loses the device-level view that B4 exists to produce; hides a real bug | Rejected |
+| Re-POST after mutation | No signature change | Two records per call in the sink | Rejected |
+
+**Trade-off accepted.** `finish()` grew two optional keyword arguments and now
+knows slightly more about its callers than it should. The alternative was a
+refactor across four call sites on the last day.
+
+**What would change my mind.** A third kind of metadata needing the same
+treatment. At that point the split above is overdue.
+
+**AI involvement:** AI proposed, accepted. Found while investigating D-041 —
+the "No calls yet" report was initially assumed to be a consequence of the
+same 400, and was not.
+
+**Feeds:** writeup §What broke · writeup §Outcome delivery

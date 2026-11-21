@@ -14,6 +14,7 @@ comparison is a config change, not a code change. See D-025.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 
@@ -114,6 +115,22 @@ async def entrypoint(ctx: JobContext) -> None:
         vad=ctx.proc.userdata.get("vad") or silero.VAD.load(),
     )
 
+    client_info: dict[str, str] = {}
+
+    @ctx.room.on("data_received")
+    def _on_data(packet) -> None:
+        if getattr(packet, "topic", "") != "client":
+            return
+        try:
+            payload = json.loads(bytes(packet.data).decode())
+        except (ValueError, UnicodeDecodeError):
+            return
+        if payload.get("type") == "client":
+            client_info.update(
+                {k: v for k, v in payload.items() if k in ("platform", "browser")}
+            )
+            logger.info("caller device: %s", client_info)
+
     @session.on("user_input_transcribed")
     def _on_transcript(event) -> None:
         # Start the clock when the customer stops speaking, not when our
@@ -142,12 +159,44 @@ async def entrypoint(ctx: JobContext) -> None:
     except asyncio.CancelledError:
         logger.info("call cancelled")
     finally:
-        outcome = await core.finish()
         summary = telemetry.summary()
-        outcome.latency.p50_ms = summary["p50_ms"]
-        outcome.latency.p95_ms = summary["p95_ms"]
-        outcome.latency.turns_measured = summary["turns_measured"] or 0
-        outcome.client.surface = "web"
+        # Passed in rather than assigned afterwards: `finish` delivers the
+        # outcome to the CRM sink, so anything set after it returns never
+        # reaches the record. See D-042.
+        outcome = await core.finish(
+            client={
+                "surface": "web",
+                "platform": client_info.get("platform"),
+                "browser": client_info.get("browser"),
+            },
+            latency={
+                "p50_ms": summary["p50_ms"],
+                "p95_ms": summary["p95_ms"],
+                "turns_measured": summary["turns_measured"] or 0,
+            },
+        )
+
+        # Show the caller what the CRM just received. On a real call this
+        # goes nowhere near the customer -- here it is the point of the demo:
+        # the conversation and the structured record it produced, on one
+        # screen.
+        try:
+            await ctx.room.local_participant.publish_data(
+                json.dumps(
+                    {
+                        "type": "outcome",
+                        "payload": outcome.to_payload(),
+                        "guardrail_hits": core.state.guardrail_hits,
+                        "latency": telemetry.summary(),
+                        "stages": telemetry.stage_breakdown(),
+                    },
+                    default=str,
+                ),
+                reliable=True,
+                topic="outcome",
+            )
+        except Exception:
+            logger.warning("could not publish the outcome to the caller")
 
         logger.info("outcome: %s (%s)", outcome.outcome, outcome.captured_by)
         logger.info("latency p50/p95: %s / %s ms", summary["p50_ms"], summary["p95_ms"])

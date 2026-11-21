@@ -213,21 +213,26 @@ class CollectionsAgent:
         greeting = opening_line(self.state.account)
         context = account_context(self.state)
 
+        # Order matters, and the API enforces it: a system message may only
+        # follow a user message. Seeding user -> assistant -> system reads
+        # naturally but is rejected with a 400 on the *next* turn, which is
+        # why this broke only once a customer replied. See D-041.
         self.messages.append(
             {"role": "user", "content": "The call has connected."}
         )
-        self.messages.append({"role": "assistant", "content": greeting})
         self.messages.append(
             {
                 "role": "system",
                 "content": (
-                    "You have already greeted the customer and asked to "
-                    "confirm their identity. Account context, which you do "
-                    "not need to fetch again:\n"
-                    f"{_json.dumps(context, default=str)}"
+                    "Account context for this call, which you do not need to "
+                    "fetch again:\n"
+                    f"{_json.dumps(context, default=str)}\n"
+                    "Greet the customer and ask them to confirm their "
+                    "identity before discussing the account."
                 ),
             }
         )
+        self.messages.append({"role": "assistant", "content": greeting})
 
         self.transcript.append(
             {"role": "agent", "text": greeting,
@@ -375,7 +380,12 @@ class CollectionsAgent:
 
     # -- closing ----------------------------------------------------------
 
-    async def finish(self) -> CallOutcome:
+    async def finish(
+        self,
+        *,
+        client: dict[str, Any] | None = None,
+        latency: dict[str, Any] | None = None,
+    ) -> CallOutcome:
         """Close the call and deliver the outcome.
 
         If the model never logged one -- it was cut off, the customer hung up,
@@ -406,6 +416,23 @@ class CollectionsAgent:
                 len(ordered) - 1, int(len(ordered) * 0.95)
             )]
             outcome.latency.turns_measured = len(ordered)
+
+        # Applied before delivery, not after. Mutating the outcome once it has
+        # already been POSTed leaves the caller holding a correct object and
+        # the CRM holding a wrong one -- which is how every voice call landed
+        # in the sink labelled `surface: "text"`. See D-042.
+        if client:
+            if client.get("surface"):
+                outcome.client.surface = client["surface"]
+            outcome.client.platform = client.get("platform")
+            outcome.client.browser = client.get("browser")
+        if latency:
+            # The voice pipeline measures end-of-speech to first audio out,
+            # which is the number M5 is defined on. It supersedes the core's
+            # own model-call timing when present.
+            outcome.latency.p50_ms = latency.get("p50_ms")
+            outcome.latency.p95_ms = latency.get("p95_ms")
+            outcome.latency.turns_measured = latency.get("turns_measured") or 0
 
         await deliver(outcome, webhook_url=self.webhook_url)
         return outcome

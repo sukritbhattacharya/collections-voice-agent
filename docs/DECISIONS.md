@@ -2703,3 +2703,87 @@ being D-059 causing this entry. The pattern is not carelessness about the fix;
 it is confidence that a narrow change cannot have wide effects.
 
 **Feeds:** writeup §What broke · interview Q "how do you know it works?"
+
+## D-061 — Never ask for the one-time password unprompted
+**Date:** 2026-11-21 · **Stage:** Manual testing · **Status:** Accepted
+**Supersedes:** D-059
+
+**Decision:** Verification is offered **only** when the customer asks about
+something on their own account. The agent never raises it otherwise. When it
+does offer, it says why, and adds that it will never ask for a card number,
+PIN or CVV. In place of the proactive offer, the opening now states the
+published terms as a **rule** — interest at 3.5% a month, a late fee of ₹750
+on balances over ₹10,000 — which is how a customer learns a fee exists at all
+without proving anything.
+
+**Why D-059 was wrong, in one sentence from the human:** *"A lot of times
+people think asking for an OTP is a scam and many people will just hang up."*
+
+That is correct, and it is the kind of correct that cannot be reached from the
+code. **An unsolicited request to read out a one-time password is the defining
+move of a vishing call in India.** Every bank's own fraud advice tells
+customers never to share an OTP with a caller. An outbound collections bot
+opening with "shall I send you a code?" is indistinguishable, to the customer,
+from the fraud they have been warned about — and the better-trained the
+customer, the faster they hang up. D-059 optimised for the information the
+customer receives on a call that completes, and ignored the probability that
+the call completes at all.
+
+The asymmetry is stark. A customer who is never told the fee loses some
+information. A customer who hangs up because the call pattern-matched to fraud
+is a lost contact, a damaged brand, and quite possibly a complaint. I reasoned
+about the first and not the second.
+
+**What survives from D-059,** because the underlying complaint was real — the
+agent used to mention no amount, no fee and no date in a whole call:
+- The **due date** is still stated in the opening. Never protected, and it
+  tells the customer which payment is meant.
+- The **published terms** are stated once, early, as a rule. Printed on the
+  statement, so not a disclosure, and they tell the customer what is at stake.
+  The agent must not then hint which side of the threshold the account sits on.
+- Once verified, the agent still states the minimum due and whether a fee
+  applies — including when it does not — without being asked twice.
+- Every `send_otp` and `verify_otp` fix from D-060 stays. They were latent
+  bugs that proactive verification exposed, not consequences of it.
+
+**Alternatives considered**
+| Option | Pro | Con | Why not |
+|---|---|---|---|
+| **Reactive only, plus the published rule in the opening** | No fraud-shaped request; the customer still learns a fee exists | Cannot tell them their own figure unless they ask | **Chosen** |
+| Keep the proactive offer, add the anti-fraud reassurance | Customer hears the figures | A reassurance from the suspected fraudster is not reassuring | Rejected — it is the request itself that triggers the pattern |
+| Verify by something other than an OTP (last four digits, date of birth) | No code to read out | Static identifiers are what fraudsters harvest; weaker than an OTP and trains bad habits | Rejected, but worth a real look with an issuer |
+| Send an SMS with a link to a bank-hosted page instead | Breaks the fraud shape entirely | A link in an SMS is its own fraud shape, and needs real infrastructure | Out of scope, best answer for production |
+
+**Measured, after the change:** E1, E3, T2, T6, T7 — 5/5 passed, gates 5/5.
+On E1 and E3 the agent never raised verification and the opening read:
+
+> "It was due on Monday the ninth of November and is now overdue. Interest on
+> an outstanding balance runs at three point five percent a month, and a late
+> fee of seven hundred and fifty rupees applies to balances over ten thousand
+> rupees. Clearing it promptly keeps those charges from building up. When
+> would you be able to clear the overdue amount?"
+
+On T2, where the customer asks "just tell me the amount", it offered at the
+first opportunity and said: *"I will never ask you for your card number, PIN
+or CVV."*
+
+**Trade-off accepted:** a customer who never asks still never hears their own
+minimum due. That is now a deliberate choice rather than an oversight: the
+figure is available the moment they ask for it, and the cost of volunteering
+it is a call that may not survive the request.
+
+**What would change my mind:** an issuer with a verified caller-ID or a
+branded in-app notification — anything that establishes who is calling before
+the code is mentioned. The fraud shape is the problem, not the verification.
+
+**AI involvement:** AI proposed, **overridden by the human**, and the override
+was right. I put three call shapes to them and they picked proactive
+verification; four live calls later they identified the failure mode that none
+of the three options had named, and that no scenario in the suite would ever
+produce, because a simulated customer has never been warned about OTP fraud.
+This is the second time this build that the human's domain knowledge of Indian
+retail banking beat my reasoning from the brief — the first being the "ji"/"G"
+transcription case in D-051.
+
+**Feeds:** writeup §Where I overrode the AI (in reverse) · writeup §What the
+evals cannot see · interview Q "what did you get wrong?"

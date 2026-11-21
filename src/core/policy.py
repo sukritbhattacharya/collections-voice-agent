@@ -300,11 +300,13 @@ def account_context(state: CallState) -> dict:
             "THESE FIGURES ARE FOR YOUR USE ONLY. Do not say the outstanding "
             "balance or the minimum due out loud, and do not hint at them, "
             "until the customer is verified. You may use them to record a "
-            "payment commitment. Offer to verify the customer with a one-time "
-            "password early in the call, so that you can tell them the "
-            "amount and whether a late fee has been applied; offer again if "
-            "they ask what they owe. Until then you may ask when they can "
-            "clear the overdue amount without naming it."
+            "payment commitment. Do NOT offer verification unprompted -- an "
+            "outbound caller asking for a code reads as a fraud attempt. "
+            "Offer it only when the customer asks about something on their "
+            "account, and then explain why you need it. Until then you may "
+            "ask when they can clear the overdue amount without naming it, "
+            "and you may state the published interest rate and late fee rule "
+            "without saying whether the fee applies here."
         )
     return base
 

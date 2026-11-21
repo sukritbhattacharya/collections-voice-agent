@@ -33,7 +33,10 @@ from .guardrails.transcription import repair as repair_transcription
 from .guardrails.output_filter import check as filter_output
 from .outcomes import CallOutcome, OutcomeType, TransferReason, deliver
 from .policy import (
+    INTEREST_PCT_MONTHLY,
     ISSUER_NAME,
+    LATE_FEE_INR,
+    LATE_FEE_THRESHOLD_INR,
     PAYMENT_REFLECT_WORKING_DAYS,
     Account,
     CallState,
@@ -241,6 +244,14 @@ class CollectionsAgent:
             reflect_days=PAYMENT_REFLECT_WORKING_DAYS,
             today=today.isoformat(),
             weekday=today.strftime("%A"),
+            # Product terms, substituted rather than written into the prompt
+            # text, so a different issuer is a config change. These are the
+            # same constants the output filter checks the spoken line against,
+            # which is what makes "no figure in the prompt is a figure the
+            # filter does not know" true. See D-061.
+            interest_pct=INTEREST_PCT_MONTHLY,
+            late_fee=int(LATE_FEE_INR),
+            late_fee_threshold=f"{int(LATE_FEE_THRESHOLD_INR):,}",
         )
 
     # -- conversation -----------------------------------------------------

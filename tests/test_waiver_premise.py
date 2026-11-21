@@ -316,3 +316,55 @@ def test_a_second_send_is_refused_and_redirected():
     assert again["sent"] is False
     assert again["already_sent"] is True
     assert "callback" in again["instruction"]
+
+
+# -- verification is reactive, and the prompt says why ---------------------
+
+def test_the_prompt_forbids_offering_verification_unprompted():
+    """An outbound caller asking for a code is the shape of a vishing call.
+    Reverted from D-059's proactive offer; see D-061."""
+    from src.core.agent_core import CollectionsAgent
+    from src.core.stub_client import StubClient
+
+    a = CollectionsAgent(
+        account=ACCOUNTS[FEE_ACCOUNT], version="v3",
+        client=StubClient(["ok"]), webhook_url="",
+    )
+    prompt = a._build_system_prompt()
+    assert "Never raise verification unprompted" in prompt
+    assert "only when the customer asks about something on their" in prompt
+
+
+def test_the_published_terms_reach_the_prompt_as_values_not_prose():
+    """The fee rule is how a customer learns a fee exists without verifying.
+    The figures must come from the same constants the filter checks against,
+    or the prompt can teach the agent a number the filter then blocks."""
+    import re
+
+    from src.core.agent_core import CollectionsAgent
+    from src.core.policy import (
+        INTEREST_PCT_MONTHLY,
+        LATE_FEE_INR,
+        LATE_FEE_THRESHOLD_INR,
+    )
+    from src.core.stub_client import StubClient
+
+    a = CollectionsAgent(
+        account=ACCOUNTS[FEE_ACCOUNT], version="v3",
+        client=StubClient(["ok"]), webhook_url="",
+    )
+    prompt = a._build_system_prompt()
+    assert not re.findall(r"\{[a-z_]+\}", prompt), "unsubstituted placeholder"
+    assert f"{INTEREST_PCT_MONTHLY}% a month" in prompt
+    assert f"{int(LATE_FEE_INR)} rupees" in prompt
+    assert f"{int(LATE_FEE_THRESHOLD_INR):,} rupees" in prompt
+
+
+def test_the_unverified_tool_instruction_matches_the_prompt():
+    """Two places tell the model what it may say before verification. They
+    disagreeing is how the agent ends up confidently wrong."""
+    from src.core.policy import account_context
+
+    rule = account_context(runner(FEE_ACCOUNT).state)["disclosure_rule"]
+    assert "Do NOT offer verification unprompted" in rule
+    assert "late fee rule" in rule

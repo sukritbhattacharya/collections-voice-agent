@@ -92,6 +92,16 @@ you would to a person.
 reaches the right outcome while saying something it shouldn't is a failure, not
 a partial pass.
 
+**The agent will not ask you for a one-time password unless you ask it
+something about your account** — an amount, the late fee, the balance. An
+outbound caller requesting a code is the shape of a vishing call, and a real
+customer is right to hang up on it, so verification is a door the agent opens
+when you knock rather than a checkpoint in front of you. It does state the
+published terms early — three and a half percent a month, ₹750 on balances
+over ₹10,000 — so you learn a fee exists without proving anything. Ask "how
+much do I owe?" and the offer comes immediately, with an assurance it will
+never ask for your card number, PIN or CVV.
+
 **Check the account in the dropdown matches the card before you tap Start.**
 The cards are written against specific balances, and the same lines on a
 different account test something else entirely. That is not a hypothetical:

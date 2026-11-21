@@ -187,3 +187,153 @@ html, body {
   .line { animation: rise 160ms ease-out; }
   @keyframes rise { from { opacity: 0; transform: translateY(4px); } }
 }
+
+/* ---------------------------------------------------------------------- */
+/* Dashboard                                                              */
+/*                                                                        */
+/* Outcome hues are four slots from a validated categorical set, checked   */
+/* with the palette validator for lightness band, chroma, colour-vision    */
+/* separation and contrast, in both light and dark. Every outcome is also  */
+/* spelled out in words beside its dot, so identity never rests on colour  */
+/* alone.                                                                  */
+/* ---------------------------------------------------------------------- */
+
+:root {
+  --oc-ptp:      #008300;  /* promise to pay */
+  --oc-paid:     #2a78d6;  /* already paid */
+  --oc-transfer: #eb6834;  /* dispute or transfer */
+  --oc-callback: #6250d6;  /* callback request */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --oc-ptp:      #0ca30c;
+    --oc-paid:     #3987e5;
+    --oc-transfer: #d95926;
+    --oc-callback: #9085e9;
+  }
+}
+
+.shell--wide { max-width: 1120px; }
+
+.bar__right { display: flex; align-items: center; gap: 14px; }
+
+.link {
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+}
+.link:hover { text-decoration: underline; }
+
+.h2 {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin: 0 0 10px;
+}
+.muted { color: var(--ink-dim); font-weight: 500; letter-spacing: 0; text-transform: none; }
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 10px;
+}
+
+.tile {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 13px 15px;
+}
+.tile__value {
+  font-size: 26px;
+  font-weight: 680;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+.tile__label {
+  font-size: 12px;
+  color: var(--ink-dim);
+  margin-top: 3px;
+}
+.tile__sub { font-size: 12px; color: var(--ink-dim); margin-top: 6px; }
+
+.split { display: grid; grid-template-columns: 1fr; gap: 16px; }
+@media (min-width: 900px) { .split { grid-template-columns: 1.25fr 1fr; align-items: start; } }
+
+.feed { display: flex; flex-direction: column; gap: 7px; }
+
+.row {
+  display: grid;
+  grid-template-columns: 11px 1fr auto;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--row-accent, var(--line));
+  border-radius: 11px;
+  padding: 11px 13px;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  min-height: var(--tap);
+}
+.row:hover { border-color: var(--accent); }
+.row[aria-current="true"] { border-color: var(--accent); background: var(--surface-2); }
+
+.dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--row-accent, var(--ink-dim));
+}
+.row__main { min-width: 0; }
+.row__title { font-weight: 620; font-size: 15px; }
+.row__sub {
+  font-size: 12.5px;
+  color: var(--ink-dim);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.row__meta { font-size: 12px; color: var(--ink-dim); text-align: right; white-space: nowrap; }
+
+.flag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: var(--oc-transfer);
+  color: #fff;
+  margin-left: 6px;
+}
+
+.detail {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+  position: sticky;
+  top: 16px;
+}
+.detail dl { display: grid; grid-template-columns: auto 1fr; gap: 5px 14px; margin: 0 0 14px; }
+.detail dt { font-size: 12.5px; color: var(--ink-dim); }
+.detail dd { margin: 0; font-size: 13.5px; overflow-wrap: anywhere; }
+
+.turns {
+  display: flex; flex-direction: column; gap: 6px;
+  max-height: 44vh; overflow-y: auto;
+  border-top: 1px solid var(--line); padding-top: 12px;
+}
+.turn { font-size: 13.5px; line-height: 1.45; overflow-wrap: anywhere; }
+.turn b {
+  display: block; font-size: 10.5px; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--ink-dim); font-weight: 700;
+}
+
+.empty { color: var(--ink-dim); font-size: 14px; }

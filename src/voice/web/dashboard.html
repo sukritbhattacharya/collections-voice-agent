@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Collections Queue</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body data-page="dashboard">
+<main class="shell shell--wide">
+
+  <header class="bar">
+    <span class="brand">Collections Queue</span>
+    <span class="bar__right">
+      <a class="link" href="/">Open caller &rarr;</a>
+      <span id="live" class="status status--idle">Waiting</span>
+    </span>
+  </header>
+
+  <!-- Counts, not charts. Three recorded calls is a list, and a bar chart of
+       four categories with single-digit counts would be decoration. -->
+  <section class="tiles" id="tiles"></section>
+
+  <section class="split">
+    <div class="feed-wrap">
+      <h2 class="h2">Calls <span class="muted" id="count"></span></h2>
+      <div id="feed" class="feed" role="list"></div>
+      <p id="empty" class="empty">
+        No calls yet. Open the caller, talk to the agent, and the outcome
+        appears here the moment the call ends.
+      </p>
+    </div>
+
+    <aside class="detail" id="detail" hidden>
+      <h2 class="h2">Call detail</h2>
+      <div id="detail-body"></div>
+    </aside>
+  </section>
+
+</main>
+<script src="dashboard.js"></script>
+</body>
+</html>

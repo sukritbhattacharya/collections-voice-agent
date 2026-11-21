@@ -108,6 +108,74 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible" && room && !wakeLock) holdWakeLock();
 });
 
+function describeDevice() {
+  const ua = navigator.userAgent;
+  const platform =
+    /iPhone|iPad|iPod/i.test(ua) ? "ios"
+    : /Android/i.test(ua) ? "android"
+    : /Macintosh/i.test(ua) ? "macos"
+    : /Windows/i.test(ua) ? "windows"
+    : /Linux/i.test(ua) ? "linux"
+    : "unknown";
+  const browser =
+    /CriOS/i.test(ua) ? "chrome"
+    : /FxiOS|Firefox/i.test(ua) ? "firefox"
+    : /EdgiOS|Edg\//i.test(ua) ? "edge"
+    : /Chrome/i.test(ua) ? "chrome"
+    : /Safari/i.test(ua) ? "safari"
+    : "unknown";
+  return { platform, browser };
+}
+
+const OUTCOME_FIELDS = [
+  ["outcome", "Outcome"],
+  ["ptp_date", "Promised date"],
+  ["ptp_amount_inr", "Promised amount"],
+  ["payment_mode", "Payment mode"],
+  ["paid_on", "Paid on"],
+  ["callback_at", "Callback at"],
+  ["transfer_reason", "Transfer reason"],
+  ["waiver_requested", "Waiver requested"],
+  ["otp_verified", "Verified"],
+  ["duration_sec", "Duration (s)"],
+  ["turn_count", "Customer turns"],
+  ["captured_by", "Captured by"],
+];
+
+function showOutcome(msg) {
+  const p = msg.payload || {};
+  const rows = OUTCOME_FIELDS
+    .filter(([k]) => p[k] !== null && p[k] !== undefined && p[k] !== "")
+    .map(([k, label]) => `${label.padEnd(17)} ${p[k]}`);
+
+  const hits = msg.guardrail_hits || [];
+  rows.push("");
+  rows.push(
+    hits.length
+      ? `Guardrails fired    ${hits.join(", ")}`
+      : "Guardrails fired    none"
+  );
+
+  const lat = msg.latency || {};
+  if (lat.p50_ms != null) {
+    rows.push(`Turn latency p50    ${lat.p50_ms} ms`);
+    rows.push(`Turn latency p95    ${lat.p95_ms} ms`);
+  }
+  const st = msg.stages || {};
+  if (st.tts_first_byte_ms != null) {
+    rows.push("");
+    rows.push("Median per stage");
+    if (st.stt_final_ms != null) rows.push(`  transcript        ${st.stt_final_ms} ms`);
+    if (st.llm_first_token_ms != null) rows.push(`  model reply       ${st.llm_first_token_ms} ms`);
+    if (st.tts_first_byte_ms != null) rows.push(`  speech            ${st.tts_first_byte_ms} ms`);
+    if (st.audio_out_ms != null) rows.push(`  audio out         ${st.audio_out_ms} ms`);
+  }
+
+  el.outcome.textContent = rows.join("\n");
+  el.outcomeWrap.hidden = false;
+  el.outcomeWrap.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
 async function startCall() {
   clearError();
 
@@ -150,6 +218,20 @@ async function startCall() {
       }
     });
 
+    /* The agent sends the structured outcome when the call closes. Showing
+       it next to the transcript is the clearest way to make the point that
+       the product is not the conversation, it is the record the conversation
+       produces. */
+    room.on(LK.RoomEvent.DataReceived, (payload, _p, _k, topic) => {
+      if (topic !== "outcome") return;
+      try {
+        const msg = JSON.parse(new TextDecoder().decode(payload));
+        if (msg.type === "outcome") showOutcome(msg);
+      } catch {
+        /* malformed; nothing useful to show */
+      }
+    });
+
     room.on(LK.RoomEvent.Disconnected, () => endCall({ remote: true }));
     room.on(LK.RoomEvent.ConnectionStateChanged, (state) => {
       if (state === LK.ConnectionState.Reconnecting) setStatus("Reconnecting", "connecting");
@@ -158,9 +240,23 @@ async function startCall() {
 
     await room.connect(url, token);
     await room.localParticipant.setMicrophoneEnabled(true);
+
+    /* Announce the device. A mid-range Android and an iPhone have different
+       microphones, different echo cancellation and different autoplay rules,
+       so a problem that only appears on one of them should be visible in the
+       data rather than remembered as an impression. */
+    try {
+      await room.localParticipant.publishData(
+        new TextEncoder().encode(JSON.stringify({ type: "client", ...describeDevice() })),
+        { reliable: true, topic: "client" }
+      );
+    } catch {
+      /* non-fatal: the call works without it */
+    }
     await holdWakeLock();
 
     el.intro.hidden = true;
+    el.outcomeWrap.hidden = true;
     el.transcript.replaceChildren();
     addLine("note", "Connected. The agent will speak first.");
 

@@ -364,6 +364,7 @@ async def entrypoint(ctx: JobContext) -> None:
                 "p50_ms": summary["p50_ms"],
                 "p95_ms": summary["p95_ms"],
                 "turns_measured": summary["turns_measured"] or 0,
+                "turns_ms": summary.get("turns_ms") or [],
             },
         )
 

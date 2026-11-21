@@ -60,6 +60,10 @@ class CallTelemetry:
             "p50_ms": self._percentile(complete, 0.50),
             "p95_ms": self._percentile(complete, 0.95),
             "turns_measured": len(complete),
+            # The raw turns, so a p95 can be pooled across calls. Percentiles
+            # do not average: a median of per-call p95s is not a p95. See
+            # D-065.
+            "turns_ms": list(complete),
         }
 
     def stage_breakdown(self) -> dict[str, int | None]:

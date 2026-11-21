@@ -163,3 +163,40 @@ def test_the_silence_window_is_a_sane_length():
     from src.voice.agent import SILENCE_SEC
 
     assert 5 <= SILENCE_SEC <= 12, "too short interrupts; too long reads as dead"
+
+
+# -- M5 needs the raw turns, not a summary --------------------------------
+
+@pytest.mark.asyncio
+async def test_the_outcome_keeps_every_turn_latency():
+    """A p95 cannot be pooled from per-call percentiles. Ninety-five turns had
+    been measured across eighteen live calls before anyone noticed that none
+    of them could be combined into the number M5 is defined as. See D-065."""
+    a = agent(script=["one", "two", "three"])
+    a.respond("first")
+    a.respond("second")
+    outcome = await a.finish()
+    assert len(outcome.latency.turns_ms) == 2
+    assert all(isinstance(v, int) for v in outcome.latency.turns_ms)
+    assert outcome.latency.turns_measured == 2
+
+
+@pytest.mark.asyncio
+async def test_the_voice_path_also_keeps_them():
+    """The voice pipeline's timing supersedes the core's, so it has to carry
+    the raw turns too or the fix is only half wired."""
+    a = agent(script=["one"])
+    a.respond("hello")
+    outcome = await a.finish(
+        latency={"p50_ms": 900, "p95_ms": 1500, "turns_measured": 3,
+                 "turns_ms": [800, 900, 1500]},
+    )
+    assert outcome.latency.turns_ms == [800, 900, 1500]
+    assert outcome.latency.p95_ms == 1500
+
+
+def test_the_voice_summary_exposes_the_raw_turns():
+    from src.voice.telemetry import CallTelemetry
+
+    t = CallTelemetry()
+    assert "turns_ms" in t.summary()

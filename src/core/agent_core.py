@@ -623,6 +623,7 @@ class CollectionsAgent:
                 len(ordered) - 1, int(len(ordered) * 0.95)
             )]
             outcome.latency.turns_measured = len(ordered)
+            outcome.latency.turns_ms = list(self.turn_latencies)
 
         # Applied before delivery, not after. Mutating the outcome once it has
         # already been POSTed leaves the caller holding a correct object and
@@ -640,6 +641,7 @@ class CollectionsAgent:
             outcome.latency.p50_ms = latency.get("p50_ms")
             outcome.latency.p95_ms = latency.get("p95_ms")
             outcome.latency.turns_measured = latency.get("turns_measured") or 0
+            outcome.latency.turns_ms = list(latency.get("turns_ms") or [])
 
         await deliver(outcome, webhook_url=self.webhook_url)
         return outcome

@@ -55,6 +55,12 @@ class LatencyStats(BaseModel):
     p50_ms: int | None = None
     p95_ms: int | None = None
     turns_measured: int = 0
+    #: Every turn's latency, not just the summary. A p95 cannot be pooled
+    #: across calls from per-call percentiles -- a median of per-call p95s is
+    #: not a p95 of anything. Ninety-five turns had been measured before this
+    #: was noticed and none of them could be combined into the number M5 is
+    #: defined as. See D-065.
+    turns_ms: list[int] = Field(default_factory=list)
 
 
 class ClientInfo(BaseModel):

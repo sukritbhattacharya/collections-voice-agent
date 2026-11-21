@@ -2997,3 +2997,67 @@ talks back.
 
 **Feeds:** writeup §What the evals cannot see · writeup §What broke ·
 interview Q "how would you test this differently?"
+
+## D-065 — Ninety-five measured turns that could not produce a p95
+**Date:** 2026-11-22 · **Stage:** Measurement · **Status:** Accepted
+
+**Decision:** The outcome payload carries `latency.turns_ms`, every turn's
+latency, alongside the per-call summary. `src/evals/latency.py` pools them and
+reports M5 as one command.
+
+**What was wrong.** M5 is p95 of end-of-speech to first audio. That is a
+percentile over *turns*, so it must be computed over every turn in the window.
+The record kept only a per-call `p50_ms` and `p95_ms` and discarded the raw
+values. **Percentiles do not average.** A median of eighteen per-call p95s is
+not a p95 of anything, and there is no arithmetic that recovers one.
+
+Eighteen live calls, 95 measured turns, and the headline voice metric was not
+computable from any of it. The instrument recorded the right quantity and then
+threw away the only form of it that answers the question.
+
+**This is the seventh instrument failure in this build** — D-024, D-031,
+D-035, D-037, D-043, D-045, D-055 and now this. Every one has the same shape:
+the product was fine and the thing measuring it was not. It is the single
+strongest pattern in the project and the one I would carry into the next
+build: the measurement deserves the same review as the code, and it almost
+never gets it, because a number that looks plausible does not announce itself
+as wrong.
+
+**What the existing summaries already indicate, with the caveat stated.**
+Across 18 calls the per-call p50 ranges 1,804–12,641 ms and the median p50 is
+about 4,000 ms, against a 1,500 ms target. These are not a pooled p95 and are
+not reported as one, but the gap is far too large to be an artefact of the
+aggregation: **M5 is being missed by roughly a factor of three.**
+
+The cause is architectural and known: `CoreBackedLLM` runs
+`await asyncio.to_thread(agent.respond, said)`, which returns the **complete**
+reply — including any tool round trips — before a single character reaches
+text-to-speech. Speech cannot begin until generation ends. Azure's time to
+first byte is 281 ms, so the voice is not the bottleneck; waiting for the
+whole reply is.
+
+The fix is to stream the first sentence to speech while the rest generates,
+which typically recovers one to two seconds. It is not a small change: the
+core is synchronous by design, and that design is what lets the eval harness
+drive the identical brain — which is the thing holding the eval numbers
+together. Trading that for latency is a real decision and not one to make at
+the end of a build.
+
+**So M5 is reported as missed, with the reason and the fix named.** That is a
+better answer than a number I could have quietly improved by measuring
+something easier.
+
+**How many calls the number needs:** at least 20 turns, which is about four
+calls at the observed mean of 5.7 customer turns. Below 20 the p95 *is* the
+worst single observation. Eight to ten calls, split across handsets, gives
+~50 turns and a p95 that is the third or fourth worst — still a point
+estimate, not a confidence interval, and it will be described that way.
+
+**AI involvement:** AI-found while answering a human question about how many
+calls M5 needs. The honest answer turned out to be that no number of calls
+would have worked, because the record could not hold the data. Worth noting
+that I reported per-call p95 figures from this record earlier today without
+noticing they could not be combined.
+
+**Feeds:** writeup §Measurement · writeup §What two weeks would buy ·
+interview Q "what would you do differently?"

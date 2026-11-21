@@ -2091,3 +2091,78 @@ handled at all. The question also contained the right instinct — that customer
 
 **Feeds:** writeup §What broke · writeup §Known limits · interview Q "why this
 STT?" and Q "show me a call where it broke"
+
+## D-052 — The voice entrypoint had no automated coverage, and shipped a crash
+**Date:** 2026-11-21 · **Stage:** Voice testing · **Status:** Accepted
+
+**Decision:** Fix the option shape, lift the session's turn-handling config to
+module level, and assert it against the framework's own resolvers in the test
+suite.
+
+**The failure.** Starting a call from a phone produced an agent that joined the
+room and never spoke. On iPhone and Android both. The worker log:
+
+```
+TypeError: 'bool' object is not a mapping
+  turn.py:298 in _resolve_preemptive_generation
+    PreemptiveGenerationOptions(**{**_PREEMPTIVE_GENERATION_DEFAULTS, **config})
+  agent.py:148 in entrypoint
+    session = AgentSession(...)
+```
+
+`turn_handling=TurnHandlingOptions(preemptive_generation=False)` — written to
+implement D-047 — is wrong. `preemptive_generation` is a nested **options
+mapping**, not a flag: the correct value is `{"enabled": False}`. The bad form
+reads naturally, passes a type checker (`TurnHandlingOptions` is a
+`total=False` TypedDict, so a wrong value type is not caught at the call site),
+and raises inside `AgentSession.__init__` — which runs *per job*, after the
+worker has registered. So the worker looked healthy, every call was dispatched,
+and every call died silently before the first word.
+
+**Why 154 passing tests said nothing.** Not one of them touched
+`src/voice/agent.py`. The suite covers the core, the guardrails, the outcome
+schema and the message sequence; the voice entrypoint was tested only by hand.
+This is the same shape as D-041 — a crash in the one file the tests do not
+reach — and it is the second time a change has been declared verified against
+a build that no longer existed. `scripts/voice_smoke_test.py` would have caught
+it in 45 seconds. It was not re-run after the change.
+
+**What this says about D-047.** The barge-in fix had four parts. Three live in
+the core (reasoning blocks stripped from history, `respond()` serialised, core
+failures made distinguishable) and were genuinely exercised by the verified
+6-turn call. The fourth — disabling preemptive generation — **has never once
+run**, because the line meant to enable it crashed the session instead. That
+call therefore passed with speculation still **on**, which is evidence that
+stripping the reasoning blocks was the load-bearing fix and preemptive-off is
+belt-and-braces. It also means the ~1s of perceived latency that change costs
+has not been paid yet. It starts being paid now, and M5 must be re-measured
+against it rather than against the earlier numbers.
+
+**Alternatives considered**
+| Option | Pro | Con | Why not |
+|---|---|---|---|
+| **Module-level config + resolver assertions** | Catches shape errors with no key, room or audio, in milliseconds | Covers configuration, not behaviour | **Chosen** |
+| Construct a real `AgentSession` in a test | Would catch more | Needs live plugin credentials and a VAD load in CI | Rejected for a 3-day build |
+| Rely on the smoke test alone | Already written, proves the whole path | 45s, needs network and credits, so it gets skipped under time pressure — exactly what happened | Kept, but as the slower outer ring |
+
+**Trade-off accepted:** These tests prove the framework accepts our
+configuration, not that the configuration is behaviourally right. A wrong-but-
+valid value still passes. The smoke test remains the only check of the real
+audio path.
+
+**Process change:** `scripts/voice_smoke_test.py` runs after **any** change to
+`src/voice/`, before the change is called done. The cost of not running it was
+a session in which the user tested two devices against a build that could not
+speak.
+
+**Verified:** worker restarted, smoke test green — agent dispatched in 2.53s,
+audio track subscribed at 3.74s, first audible frame at 4.13s, 71 frames
+received. 157 tests pass, 3 new.
+
+**AI involvement:** AI-originated defect, caught by the user. I wrote the bad
+option shape, declared D-047 verified without re-running the smoke test, and
+restarted the worker onto the broken build at the end of the previous session.
+The user found it by trying to make a call.
+
+**Feeds:** writeup §What broke · writeup §Known limits · interview Q "show me a
+call where it broke"

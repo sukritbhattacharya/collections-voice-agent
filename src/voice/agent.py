@@ -46,6 +46,27 @@ logger = logging.getLogger("collections.voice")
 # agent things it has no business answering. See D-044.
 MAX_CALL_SEC = float(os.getenv("MAX_CALL_SEC", "240"))
 
+#: How the session handles turn-taking.
+#:
+#: Preemptive generation starts a reply on an interim transcript and discards
+#: it if the final differs. It buys roughly a second of perceived latency for
+#: a pipeline whose LLM is stateless.
+#:
+#: Ours is not. The core owns the conversation, so a speculative call is
+#: indistinguishable from a real turn: it appends to the history and the
+#: discarded turn stays there. Under barge-in -- when interim transcripts
+#: change most -- that corrupted the history on every interruption. See D-047.
+#:
+#: The value is a nested options mapping, not a flag. Passing
+#: `preemptive_generation=False` type-checks, reads correctly, and crashes
+#: every job at session construction with "'bool' object is not a mapping",
+#: so the agent joins the room and never speaks. It lives here, at module
+#: level, so a test can hand it to the framework's own resolvers without
+#: starting a call. See D-052.
+TURN_HANDLING = TurnHandlingOptions(
+    preemptive_generation={"enabled": False},
+)
+
 WRAP_UP_LINE = (
     "I need to let you go, but thank you for your time. "
     "You can reach us on the number on the back of your card. Goodbye."
@@ -150,16 +171,7 @@ async def entrypoint(ctx: JobContext) -> None:
         llm=CoreBackedLLM(core, telemetry),
         tts=build_tts(),
         vad=ctx.proc.userdata.get("vad") or silero.VAD.load(),
-        # Preemptive generation starts a reply on an interim transcript and
-        # discards it if the final differs. It buys roughly a second of
-        # perceived latency for a pipeline whose LLM is stateless.
-        #
-        # Ours is not. The core owns the conversation, so a speculative call
-        # is indistinguishable from a real turn: it appends to the history and
-        # the discarded turn stays there. Under barge-in -- when interim
-        # transcripts change most -- that corrupted the history on every
-        # interruption. See D-047.
-        turn_handling=TurnHandlingOptions(preemptive_generation=False),
+        turn_handling=TURN_HANDLING,
     )
 
     client_info: dict[str, str] = {}

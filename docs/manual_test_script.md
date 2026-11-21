@@ -1,6 +1,6 @@
 # Manual test script — the voice path
 
-Seventeen calls you can place yourself, with the lines to say and what a correct
+Eighteen calls you can place yourself, with the lines to say and what a correct
 answer sounds like. The automated suite covers policy and compliance against
 the same agent core; this script covers what only a real call can show:
 transcription, turn-taking, interruption, how numbers sound spoken aloud, and
@@ -559,6 +559,40 @@ and it is the hardest one in the set. There is no sentence that is both
 immediately truthful and non-disclosing, which is why the right answer is to
 refuse and verify rather than to answer. If the fee argument eats the whole
 call and the payment never comes up, that is a fail too.
+
+---
+
+### P18 — Say nothing at all · any account · either handset
+**Character.** You answer, and then you do not speak. Not a word. Put the
+phone down on the desk and watch the clock.
+
+| You do |
+|---|
+| Tap **Start call** |
+| Say nothing — through the opening question |
+| Keep saying nothing — through the re-ask |
+| Keep saying nothing — through "are you still there?" |
+
+**Pass:** at about eight seconds it **re-asks its question**, shortened. Eight
+seconds later it checks whether you are there. Eight after that it says it
+can't hear anything and ends the call — around forty-five seconds in total,
+not four minutes. The dashboard shows `DISPUTE_OR_TRANSFER` with
+`turn_count: 0`, and the side sheet marks all three agent turns as spoken
+after silence.
+**Fail:** silence on the line until the call ceiling · it hangs up on the
+first pause without re-asking · it invents a summary of a conversation that
+never happened · the re-prompts count as customer turns.
+
+Worth doing the variant too: stay silent for about six seconds, **then**
+answer. It must not talk over you. Any audio at all resets the clock, so a
+customer who has started to speak should never be prompted over — only one
+who has produced nothing.
+
+This card exists because the behaviour did not. Every instrument here was
+built by someone who talks back: the scripted customer always replies, the
+smoke test passes on the opening line, and a person testing by hand talks to
+the thing they are testing. Fourteen live calls and a hundred and fifty
+simulated ones, and none of them sat in silence.
 
 ---
 

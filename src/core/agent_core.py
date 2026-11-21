@@ -157,6 +157,22 @@ class AnthropicClient:
 #: which is wall-clock and cannot be talked past. See D-054.
 MAX_TURNS_AFTER_OUTCOME = 12
 
+#: How many times the agent re-asks before giving up on a silent line. Two is
+#: what a person does: ask again, check they are there, then stop. A third
+#: attempt to a line nobody is on is just a machine talking to itself, and on
+#: a call that is already unwelcome it reads as harassment.
+MAX_SILENCE_PROMPTS = 2
+
+#: Spoken verbatim when the line has been silent through every re-prompt.
+#: Deterministic rather than generated: it is the last thing the customer may
+#: hear, it must not invent a commitment nobody made, and a model asked to
+#: improvise a goodbye to silence has been observed to summarise a call that
+#: did not happen.
+SILENCE_SIGN_OFF = (
+    "I can't hear anything, so I'll leave it there and try you another time. "
+    "Thank you."
+)
+
 
 def _without_thinking(blocks: list[Any]) -> list[Any]:
     """Drop reasoning blocks before they enter the stored history.
@@ -476,6 +492,58 @@ class CollectionsAgent:
             latency_ms=latency_ms,
             call_ended=ended,
         )
+
+    def reprompt(self) -> AgentTurn | None:
+        """Ask again, because the customer has said nothing.
+
+        Silence never reaches the core on its own: the conversation loop is
+        driven by customer turns, so a customer who says nothing produces no
+        turn and the agent waits indefinitely. The voice layer notices the gap
+        and calls this. See D-064.
+
+        Returns `None` once the re-prompt budget is spent; the caller should
+        speak `SILENCE_SIGN_OFF` and end the call.
+
+        A re-prompt is not a customer turn. It appends an agent turn to the
+        transcript and nothing to the customer side, so it inflates neither
+        `turn_count` nor the post-outcome ceiling -- a silent customer must not
+        be able to end the call early by being quiet, nor hold it open.
+        """
+        if self.state.silence_prompts >= MAX_SILENCE_PROMPTS:
+            self.state.ended_on_silence = True
+            self.state.call_closed = True
+            self.ended = True
+            self.transcript.append({
+                "role": "agent",
+                "text": SILENCE_SIGN_OFF,
+                "otp_verified": self.state.otp_verified,
+                "after_silence": True,
+            })
+            return None
+
+        self.state.silence_prompts += 1
+        first = self.state.silence_prompts == 1
+        self.messages.append({
+            "role": "user",
+            "content": (
+                "[SYSTEM: The line has been silent for several seconds. The "
+                "customer has said nothing -- they may not have heard you, or "
+                "may have put the phone down. "
+                + (
+                    "Ask your last question again, in fewer words. Do not "
+                    "greet them again, do not apologise at length, and do not "
+                    "add anything new. One short sentence."
+                    if first else
+                    "Check whether they are still there, in one short "
+                    "sentence, and say you will try another time if not."
+                )
+                + " This is an instruction, not something the customer said.]"
+            ),
+        })
+        turn = self._generate()
+        if turn.text:
+            self.transcript[-1]["after_silence"] = True
+        return turn
 
     def _should_end(self) -> bool:
         """Whether the call should hang up after this turn.

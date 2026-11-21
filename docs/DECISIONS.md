@@ -2893,3 +2893,107 @@ email address was in it — the same blindness as reading "ending in 8842" all
 day without hearing it.
 
 **Feeds:** README §Getting started · writeup §What broke
+
+## D-064 — A silent line was waited out for four minutes
+**Date:** 2026-11-21 · **Stage:** Manual testing · **Status:** Accepted
+
+**Decision:** The voice layer watches for a silent line and calls a new
+`CollectionsAgent.reprompt()`. The agent re-asks its question in fewer words,
+then checks whether anyone is there, then signs off and ends the call. Two
+re-prompts, eight seconds apart, and a deterministic closing line.
+
+**What was wrong.** Nothing handled silence at all. The conversation loop is
+driven by customer turns, so a customer who says nothing produces no turn: the
+agent asked its question and waited, in silence, until the four-minute call
+ceiling. No re-prompt, no "are you still there", no hang-up.
+
+**Why nobody noticed, which is the more useful part.** Every test in this
+build answers. The scripted simulator always replies — a persona that says
+nothing would look like a broken scenario. The smoke test asserts audio
+*arrives*, so it passes on the opening line alone and exits. And a person
+testing by hand talks to the thing they are testing. Fourteen live calls, 150
+simulated ones, a device matrix and a sixteen-card manual script, and not one
+of them sat in silence. It took someone asking the question out loud.
+
+LiveKit does expose a `user_away_timeout`, default fifteen seconds, and emits
+a `user_state_changed` event when it trips. It takes no action on its own, and
+nothing was listening.
+
+**Design, and why each number is what it is**
+- **Eight seconds** before the first re-prompt. Four felt like interrupting
+  when tried by ear; fifteen is long enough that the customer has concluded
+  the line is dead. Eight is a long pause in conversation and a short one for
+  someone who has walked off to find their card.
+- **Two re-prompts.** What a person does: ask again, check they are there,
+  stop. A third attempt at an empty line is a machine talking to itself, and
+  on a call that is already unwelcome it reads as harassment.
+- **The first re-prompt repeats the question**, shortened, rather than saying
+  "are you still there?" — the likeliest reason for silence is that the
+  customer did not catch it.
+- **The sign-off is a constant, not generated.** It is the last thing the
+  customer may hear, and a model asked to improvise a goodbye to silence has
+  been observed to summarise a call that did not happen, inventing a
+  commitment nobody made.
+- **A re-prompt is not a customer turn.** It adds an agent turn and nothing to
+  the customer side, so being quiet neither inflates `turn_count` nor consumes
+  the post-outcome ceiling. Silence must not be able to end a call early or
+  hold one open.
+- The outcome is the existing fallback: `DISPUTE_OR_TRANSFER` with a note, so
+  an unreachable call is routed to a human to retry rather than vanishing.
+
+**The bug inside the fix, which is the part worth reading.** The first version
+registered the handlers *after* the opening line was spoken. The transition
+into `listening` had therefore already happened, and nothing moves the agent's
+state again until the customer speaks — which is precisely the event being
+waited for. The watchdog armed itself on an event that had already passed, so
+it never fired once. A probe that joined a real room and sat silent for
+thirty-four seconds got one utterance and an empty log.
+
+Handlers now register before `session.start`, and the clock is armed
+explicitly after the opening. **This is the third time today** a control
+depended on something the model or the framework did first: the waiver rule
+gated on a flag the model set after speaking (D-058), `send_otp` not existing
+at the moment the flow needed it (D-060), and this. The shape is always the
+same — the control is correct and arms too late.
+
+**Measured on a real call.** A probe joined over LiveKit and stayed silent:
+
+```
+AGENT  Hello, this is Priya calling from Mumbai Bank. Am I speaking with Rohan Mehta?
+       (8s silence)
+AGENT  Am I speaking with Rohan Mehta?
+       (8s silence)
+AGENT  Hello, are you still there? If not, I'll try again another time.
+       (8s silence)
+AGENT  I can't hear anything, so I'll leave it there and try you another time. Thank you.
+```
+
+Call ended at 44 seconds instead of 240. Outcome `DISPUTE_OR_TRANSFER`,
+`turn_count: 0`, every re-prompt marked `after_silence` in the transcript so a
+reviewer can see the agent spoke three times because nobody answered, not
+because it repeated itself.
+
+**Alternatives considered**
+| Option | Pro | Con | Why not |
+|---|---|---|---|
+| **Re-prompt twice, then end** | What a person does; bounded | Two numbers to tune by ear | **Chosen** |
+| Use `user_away_timeout` and its event directly | Framework-native | Fires once; the state does not return to "away" for a second prompt, so repeated prompting needs own timing anyway | Used as the reference for the window, not the mechanism |
+| End on the first silence | Simplest | A customer who put the phone down to find their card gets hung up on | Rejected |
+| Keep waiting to the ceiling | Zero work | Four minutes of an open line, and the customer hears nothing | Rejected; this was the bug |
+
+**Trade-off accepted:** an eight-second window will occasionally talk over
+someone slow to answer. Any speech resets the clock, interim transcripts
+included, so a customer who has *started* to answer is never prompted over —
+only one who has produced no audio at all.
+
+**What would change my mind:** hearing it interrupt on a real call. The window
+is an environment variable for that reason.
+
+**AI involvement:** Human-found by asking a question, not by testing — *"if the
+user doesn't reply, will the agent repeat its question again?"* The honest
+answer was no, and neither the test suite nor the manual script could have
+produced it, because every instrument in this build was built by someone who
+talks back.
+
+**Feeds:** writeup §What the evals cannot see · writeup §What broke ·
+interview Q "how would you test this differently?"

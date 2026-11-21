@@ -210,6 +210,12 @@ class CallState:
     """Mutable per-call state. One instance per call, never shared."""
 
     account: Account
+    #: How many times the agent has re-asked because the customer said
+    #: nothing. Capped, so a call to an empty room cannot run to the ceiling.
+    #: See D-064.
+    silence_prompts: int = 0
+    #: The call ended because nobody answered, not because it concluded.
+    ended_on_silence: bool = False
     otp_verified: bool = False
     #: The code has been sent, so the agent should be waiting for the
     #: customer to read it back rather than offering again. See D-060.

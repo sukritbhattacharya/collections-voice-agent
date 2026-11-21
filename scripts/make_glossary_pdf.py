@@ -97,8 +97,13 @@ def rules() -> dict:
 def cards() -> list[tuple[str, str, str, str]]:
     text = (ROOT / "docs/manual_test_script.md").read_text("utf-8")
     out = []
-    for m in re.finditer(r"^### (P\d+) — (.+?) · `(MB-\d+)` · (.+)$", text, re.M):
-        out.append((m.group(1), m.group(2), m.group(3), m.group(4)))
+    # The account column is not always an id -- one card runs on any account,
+    # and a regex that insisted on `MB-nnnn` silently dropped it from the
+    # listing while the count above it stayed plausible. Which is the same
+    # failure as D-055: the number looked fine because the filter was wrong.
+    for m in re.finditer(r"^### (P\d+) — (.+?) · (.+?) · (.+)$", text, re.M):
+        account = m.group(3).strip("`")
+        out.append((m.group(1), m.group(2), account, m.group(4)))
     return out
 
 

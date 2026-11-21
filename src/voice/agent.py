@@ -31,7 +31,11 @@ from livekit.agents import (
 )
 from livekit.plugins import deepgram, silero
 
-from src.core.agent_core import CollectionsAgent
+from src.core.agent_core import (
+    MAX_SILENCE_PROMPTS,
+    SILENCE_SIGN_OFF,
+    CollectionsAgent,
+)
 from src.core.policy import ACCOUNTS, DEFAULT_CUSTOMER_ID, STT_KEYTERMS
 from src.voice.core_llm import CoreBackedLLM
 from src.voice.telemetry import CallTelemetry
@@ -45,6 +49,13 @@ logger = logging.getLogger("collections.voice")
 # problem and a compliance one: an open-ended call is an invitation to ask the
 # agent things it has no business answering. See D-044.
 MAX_CALL_SEC = float(os.getenv("MAX_CALL_SEC", "240"))
+
+#: How long a silent line is left before the agent asks again. Eight seconds
+#: is a long pause in conversation and a short one for someone who has walked
+#: to find their card. Four felt like interrupting when tried by ear; fifteen
+#: -- the framework's own default for marking a user "away" -- is long enough
+#: that the customer has concluded the line is dead. See D-064.
+SILENCE_SEC = float(os.getenv("SILENCE_SEC", "8"))
 
 #: How the session handles turn-taking.
 #:
@@ -246,6 +257,37 @@ async def entrypoint(ctx: JobContext) -> None:
         if timing.audio_out_ms is None:
             timing.mark("audio_out")
 
+    # -- silence -------------------------------------------------------
+    # The conversation loop is driven by customer turns, so a customer who
+    # says nothing produces no turn and the agent waits for the call ceiling
+    # in silence. Nobody reported this because nobody sat in silence; every
+    # test, scripted or human, answers. See D-064.
+    #
+    # The clock starts when the agent stops speaking, not when the customer
+    # last spoke -- what matters is how long they have been left waiting for
+    # a reply to a question they were just asked.
+    quiet_since: float | None = None
+    speaking = False
+
+    @session.on("agent_state_changed")
+    def _on_agent_quiet(event) -> None:
+        nonlocal quiet_since, speaking
+        state = getattr(event, "new_state", None)
+        if state == "speaking":
+            speaking = True
+            quiet_since = None
+        elif state == "listening":
+            speaking = False
+            quiet_since = time.monotonic()
+
+    @session.on("user_input_transcribed")
+    def _on_customer_heard(event) -> None:
+        nonlocal quiet_since
+        # Any speech at all resets the clock, interim included: the customer
+        # audibly thinking is not the customer absent, and prompting over
+        # someone who has started to answer is worse than waiting.
+        quiet_since = None
+
     await session.start(
         agent=Agent(instructions="Collections agent. Behaviour is owned by the core."),
         room=ctx.room,
@@ -255,14 +297,44 @@ async def entrypoint(ctx: JobContext) -> None:
     opening = await asyncio.to_thread(core.open_call)
     await session.say(opening.text)
 
+    # Arm the silence clock here as well as in the state handler. Relying on
+    # the handler alone was the first version of this and it never fired once:
+    # the handlers were registered after the opening line, by which time the
+    # transition into `listening` had already happened, and nothing moves the
+    # state again until the customer speaks -- which is the thing being waited
+    # for. A control that arms itself on an event that has already passed is
+    # not a control. See D-064.
+    quiet_since = time.monotonic()
+
     deadline = time.monotonic() + MAX_CALL_SEC
     timed_out = False
+    silent_close = False
     try:
         while not core.ended:
             if time.monotonic() > deadline:
                 timed_out = True
                 logger.warning("call hit the %.0fs ceiling; wrapping up", MAX_CALL_SEC)
                 break
+
+            if (
+                not speaking
+                and quiet_since is not None
+                and time.monotonic() - quiet_since > SILENCE_SEC
+            ):
+                quiet_since = None  # disarm while we handle it
+                turn = await asyncio.to_thread(core.reprompt)
+                if turn is None:
+                    logger.info("line silent through every re-prompt; ending")
+                    silent_close = True
+                    await session.say(SILENCE_SIGN_OFF)
+                    break
+                logger.info(
+                    "line quiet for %.0fs; re-asking (%d of %d)",
+                    SILENCE_SEC, core.state.silence_prompts, MAX_SILENCE_PROMPTS,
+                )
+                if turn.text:
+                    await session.say(turn.text)
+
             await asyncio.sleep(0.25)
     except asyncio.CancelledError:
         logger.info("call cancelled")
@@ -272,7 +344,7 @@ async def entrypoint(ctx: JobContext) -> None:
         # over the top of our own closing line is worse than staying on the
         # line half a second longer. See D-044.
         try:
-            if timed_out:
+            if timed_out and not silent_close:
                 await session.say(WRAP_UP_LINE)
             await session.drain()
         except Exception:

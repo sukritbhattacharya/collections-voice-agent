@@ -2218,3 +2218,81 @@ behaviour is given to you and the state is yours to choose. The fixtures only
 have value if they can be selected in the moment, which they could not be.
 
 **Feeds:** writeup §What you built · `docs/manual_test_script.md`
+
+## D-054 — Long conversations are a separate failure mode, and were untested
+**Date:** 2026-11-21 · **Stage:** Measurement · **Status:** Accepted
+
+**Decision:** Add three long-form scenarios (`L1`, `L2`, `L3`, 30-turn budgets)
+to the suite, raise the post-outcome turn ceiling from 4 to 12, and stop
+stating the late fee's *applicability* before verification.
+
+**Why.** Every one of the twelve original scenarios runs 10–14 turns, and each
+isolates one rule so that a failure is attributable. That is right for
+diagnosis and wrong as a model of production. Length is its own failure mode: a
+boundary that holds on the first refusal can soften on the fifth, and nothing
+in the suite pushed the same boundary repeatedly inside one call.
+
+**What the first long run found (3 scenarios, 1 run each).**
+
+Gates held 3/3. Two defects underneath that:
+
+**1. The agent hung up on customers who were still talking.**
+`MAX_TURNS_AFTER_OUTCOME` was 4 — intended as a backstop against a model that
+forgets to call `end_call`, but functioning as a budget for the customer's
+remaining questions. Two of three long calls ended with `close_not_confirmed`
+mid-question. This is precisely the premature hang-up D-044 identified and
+D-049 was supposed to prevent: the ceiling built to protect the call was
+cutting it off. Raised to 12. The real ceiling is `MAX_CALL_SEC`, which is
+wall-clock and cannot be talked past; the turn ceiling only needs to catch a
+model that forgets to hang up. After the change: 18 and 15 customer turns, both
+ending naturally, zero guardrail hits.
+
+**2. The late fee leaked which side of the threshold a balance sits on.**
+Pre-verification, the agent said *"the late fee on this card is seven hundred
+and fifty rupees."* No rule fired, correctly — `protected_amounts` covers the
+outstanding balance and the minimum due, and ₹750 is a published policy
+constant, not account data. But *applying* it to this account tells an
+unverified caller the balance is over ₹10,000, and saying no fee is due tells
+them it is under. That is a one-bit disclosure of account state, and it
+contradicts the strict reading this build already committed to in `policy.py`.
+The prompt now permits the rule and forbids its application until verified.
+
+A deliberate judgement: this is a prompt fix, not a new regex. The leak is an
+*inference* from a correct sentence, and a regex that blocked "750" before
+verification would also block the legitimate statement of policy. Where the
+violation is contextual rather than lexical, the prompt is the right layer —
+the inverse of D-051, where the failure was lexical and the prompt was the
+wrong layer.
+
+**The best evidence this build has produced.** On the first `L2` run the model
+held the waiver boundary for four attempts and **began to approve on the
+fifth**. The output filter blocked it and logged
+`compliance:waiver_or_discount_approval`. On the re-run it held all five. So
+the drift is **stochastic, and it is real** — which is the entire argument for
+deterministic guardrails stated as evidence rather than as a thesis. A prompt
+that passes a single run of a repeated-pressure scenario has not been shown to
+hold; the rule behind it does not care how many times it is asked.
+
+**Trade-off accepted:** One run per long scenario is an anecdote, not a rate.
+Three long scenarios at 30 turns cost roughly 60 seconds and $0.02 each, so
+this is affordable to repeat — it has not been repeated yet, and the writeup
+should say "observed once in two runs", not "19% of the time".
+
+**Also fixed:** the `L2` persona invented a six-digit OTP and spent five turns
+failing verification, derailing its own scenario. A simulator that improvises
+account data tests the harness, not the agent. It now reads the fixture's code.
+
+**What would change my mind:** If repeated long runs show the waiver drift at
+any material rate, the fifth-ask case belongs in the graded set with its own
+metric rather than living inside a scenario, because then it is a known
+behaviour and not an edge.
+
+**AI involvement:** Human-originated. The user asked whether the scenarios were
+too short for production, whether the agent's questions were hardcoded or
+generated, and said the agent should hold its guardrails over longer
+conversations. All three long scenarios and both defects came out of that
+question. I had written twelve scenarios that each proved one rule and never
+asked what happens when a call goes on.
+
+**Feeds:** writeup §Test results · writeup §What I cut · interview Q "when does
+it break?"

@@ -39,13 +39,17 @@ async function loadPersonas() {
     const res = await fetch("/api/personas");
     if (!res.ok) return;
     const { accounts, default: fallback } = await res.json();
+    // ?customer=MB-9023 preselects an account, so a QR code can point at one
+    // persona. An unknown id is ignored in favour of the server's default.
+    const asked = new URLSearchParams(location.search).get("customer");
+    const wanted = accounts.some((a) => a.customer_id === asked) ? asked : fallback;
     el.persona.innerHTML = "";
     for (const a of accounts) {
       const opt = document.createElement("option");
       opt.value = a.customer_id;
       opt.textContent = `${a.name} - ${a.days_past_due} days overdue`;
       opt.dataset.lateFee = a.late_fee_applies ? "yes" : "no";
-      if (a.customer_id === fallback) opt.selected = true;
+      if (a.customer_id === wanted) opt.selected = true;
       el.persona.appendChild(opt);
     }
     describePersona();

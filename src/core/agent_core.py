@@ -141,7 +141,15 @@ class AnthropicClient:
 # else. If the model never calls `end_call` -- it forgot, or it is answering
 # something at length -- the call closes anyway. A model that forgets to hang
 # up must not be able to leave the line open. See D-049.
-MAX_TURNS_AFTER_OUTCOME = 4
+#: Turns the customer still gets after the outcome is captured.
+#:
+#: This is a backstop against a model that forgets to call `end_call`, not a
+#: budget for the customer's remaining questions. At 4 it was the latter: two
+#: of three long scenarios ended with `close_not_confirmed` while the customer
+#: was still mid-question, which is the premature hang-up D-044 set out to
+#: avoid. The real ceiling on call length is MAX_CALL_SEC in the voice layer,
+#: which is wall-clock and cannot be talked past. See D-054.
+MAX_TURNS_AFTER_OUTCOME = 12
 
 
 def _without_thinking(blocks: list[Any]) -> list[Any]:

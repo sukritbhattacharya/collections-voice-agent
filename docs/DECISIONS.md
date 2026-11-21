@@ -3131,8 +3131,20 @@ these rules on day one, tested them against sentences I invented, and never
 read them against the transcripts they were grading. The tests passed because
 they tested the same assumption the rule encoded.
 
-**Feeds:** writeup §3 (the correction, published in the body rather than a
-footnote) · interview Q "how do you know your evals are right?"
+**A correction to the running count in this file.** Entries have numbered the
+instrument failures as they appeared, and the numbering drifted: D-055 calls
+itself the sixth while listing six predecessors, and D-065 calls itself the
+seventh while listing seven. The true count, including this entry, is
+**nine** — D-024, D-031, D-035, D-037, D-043, D-045, D-055, D-065, D-066. The
+earlier entries are left as written, because this file's value is that it was
+recorded as the work happened rather than tidied afterwards; the writeup
+quotes the corrected number and lists the entries so a reader can check it.
+
+An off-by-one in a tally of measurement errors is not an irony I can improve
+on.
+
+**Feeds:** writeup, The measurement (the correction is in the body rather
+than a footnote) · interview Q "how do you know your evals are right?"
 
 ## D-067 — A persona you can describe out loud
 **Date:** 2026-11-22 · **Stage:** Submission · **Status:** Accepted

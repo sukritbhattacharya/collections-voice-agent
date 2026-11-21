@@ -37,7 +37,7 @@ Six layers, each answering a different failure:
 | Orchestration | LiveKit Agents (Python) | Code-first; supplies VAD, turn detection and barge-in. Speech-to-text, model and speech stay three separately chosen plugins rather than one gateway that hides the choice. |
 | Speech to text | Deepgram Nova-3, `language=multi` | Streaming with interim results and endpointing, which sub-second turn-taking requires; `language=multi` is the documented Hindi–English code-switching mode. **No verified public Hinglish accuracy figure exists, so I measured it rather than cite a datasheet.** |
 | Text to speech | Azure `en-IN-NeerjaNeural`, `empathetic` 1.3 | Chosen on measured time-to-first-byte across **ten** voice and prosody combinations. The warmest option was also the fastest, 281 ms. Two faster-looking HD voices lost on 1,100 ms. |
-| Model | Claude Haiku 5.5 | The cheapest model that cleared the compliance bar, decided by the table in §3. A CLI flag, so the claim is re-testable. |
+| Model | Claude Haiku 5.5 | The cheapest model that cleared the compliance bar, decided by the table in *The measurement* below. A CLI flag, so the claim is re-testable. |
 | Judge | Claude Sonnet 5.5 | Offline, for what rules cannot decide: tone, whether a deflection was clean. |
 
 ---
@@ -173,8 +173,9 @@ patterns, each with more instances than I expected.
 
 ### Pattern 1 — the instrument, seven times
 
-The product was fine and the thing measuring it was not. **Eight times**, the
-scorer correction in §3 included.
+The product was fine and the thing measuring it was not. **Nine times** —
+`D-024`, `D-031`, `D-035`, `D-037`, `D-043`, `D-045`, `D-055`, `D-065` and the
+scorer correction above, each written up in the decision log.
 
 The sharpest: the live dashboard read the last N records *then* filtered for
 voice calls. Evaluation runs append to the same file, so **seven real calls
@@ -189,13 +190,14 @@ was not computable from any of it.
 
 Also: a latency figure that measured how long the agent *talked* rather than
 how long the customer *waited*, reporting 12,641 ms on a call that felt
-responsive; and, while writing this document, a rupee sign rendering as a
-black box on every page of a PDF whose text I had "verified" by extracting it
-— which reads back the character the box stands in for.
+responsive. And every call recording `platform: null`, because the device
+announced itself to an empty room.
 
 If I carry one thing out of this build it is that **the measurement deserves
 the same review as the code and almost never gets it**, because a number that
-looks plausible does not announce itself as wrong.
+looks plausible does not announce itself as wrong. Every one of these nine was
+found by accident, while looking at something else — none by a test, because
+the tests encoded the same assumption the instrument did.
 
 ### Pattern 2 — controls that armed too late, three times
 
@@ -288,7 +290,7 @@ document, and was substantially wrong in three ways:
   have wide effects.
 
 What AI was genuinely good at: holding a decision log honestly while the work
-was happening, which is why §4 exists at all rather than being reconstructed;
+was happening, which is why *What broke* exists at all rather than being reconstructed;
 and running the same measurement forty times without getting bored.
 
 ---

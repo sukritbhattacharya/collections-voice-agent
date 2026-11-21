@@ -337,3 +337,26 @@ html, body {
 }
 
 .empty { color: var(--ink-dim); font-size: 14px; }
+
+/* Account picker. Present so a demo can change persona between calls from
+   the handset; sized to the 44pt tap target and 16px minimum font that keep
+   iOS from zooming the page on focus. */
+.picker {
+  display: block;
+  margin: 1rem 0 0.35rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ink-dim);
+}
+
+.picker__select {
+  width: 100%;
+  min-height: var(--tap);
+  padding: 0.6rem 0.75rem;
+  font-size: 16px;
+  font-family: inherit;
+  color: inherit;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}

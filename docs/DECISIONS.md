@@ -2166,3 +2166,55 @@ The user found it by trying to make a call.
 
 **Feeds:** writeup §What broke · writeup §Known limits · interview Q "show me a
 call where it broke"
+
+## D-053 — The account being called is chosen by the caller, not the process
+**Date:** 2026-11-21 · **Stage:** Voice testing · **Status:** Accepted
+
+**Decision:** The account travels in the caller's join token as participant
+metadata. The web server validates it and the agent reads it before the
+greeting. `CALL_CUSTOMER_ID` stays as the fallback for headless runs.
+
+**The problem.** `CALL_CUSTOMER_ID` is an environment variable read inside the
+worker process, so switching from a ₹47,500 account to an ₹8,200 one meant
+restarting the worker. Four well-chosen fixtures existed — two either side of
+the late-fee threshold — and none of them were reachable from the handset.
+Any demo involving more than one account was a demo with a process restart in
+the middle of it.
+
+**Why metadata and not the data channel.** The greeting names the customer, so
+the account must be known *before the agent speaks*. D-045 was exactly this
+mistake: device info published over the data channel always arrived after the
+agent had joined. The join token is the only channel that is guaranteed to be
+in place first.
+
+**Alternatives considered**
+| Option | Pro | Con | Why not |
+|---|---|---|---|
+| **Participant metadata in the join token** | Available before the first word; one validation point | Needs the token minted per call, which it already is | **Chosen** |
+| Keep the env var, restart per persona | No code | A restart mid-call-sequence, and the worker takes ~10s to register | Rejected |
+| Room metadata via the room-creation API | Cleaner conceptually | Another API call and another failure mode on the critical path | Rejected for a 3-day build |
+| Data channel from the client | Reuses existing plumbing | Arrives after the greeting. See D-045 | Rejected |
+
+**Where validation lives.** In the web server, which returns 400 for an
+unknown id. The agent falls back to the default and logs a warning instead of
+raising. The asymmetry is deliberate: a bad id should be caught before a call
+starts, and if one somehow reaches the worker, calling the wrong fixture is a
+better outcome than a `KeyError` killing the job mid-conversation.
+
+**Trade-off accepted:** The client can now ask to be any fixture. On a local
+demo server behind an ephemeral tunnel that is fine; in production the dialler
+decides who is called, not the handset, and this endpoint would not exist.
+Stated in the code rather than left implicit.
+
+**Verified:** `/api/personas` lists all four; `?customer=MB-0000` returns 400;
+a smoke test with `MB-9023` produced `calling Priya Nair (MB-9023), 5 days past
+due`. The smoke test now takes a customer id, so the account-selection path is
+covered by the same check that covers the audio path.
+
+**AI involvement:** AI-originated, prompted by the user asking how to cover
+randomly-assigned personas in a live session. The useful reframing came out of
+that question: a persona is *behaviour* and an account is *state*, the
+behaviour is given to you and the state is yours to choose. The fixtures only
+have value if they can be selected in the moment, which they could not be.
+
+**Feeds:** writeup §What you built · `docs/manual_test_script.md`

@@ -23,6 +23,8 @@ from aiohttp import web
 from dotenv import load_dotenv
 from livekit import api
 
+from src.core.policy import ACCOUNTS, DEFAULT_CUSTOMER_ID, LATE_FEE_THRESHOLD_INR
+
 load_dotenv()
 
 WEB_DIR = Path(__file__).parent / "web"
@@ -45,6 +47,23 @@ async def issue_token(request: web.Request) -> web.Response:
     room = request.query.get("room") or f"collections-{uuid.uuid4().hex[:8]}"
     identity = request.query.get("identity") or f"customer-{uuid.uuid4().hex[:6]}"
 
+    # Which account this call is about. It travels in the join token as
+    # participant metadata, so the agent has it before it speaks -- the
+    # greeting names the customer, so this cannot arrive over the data
+    # channel after the fact (D-045 is the same mistake made once already).
+    #
+    # Validated here rather than in the agent: an unknown id would otherwise
+    # take the worker's job down with a KeyError mid-demo. See D-053.
+    requested = request.query.get("customer") or DEFAULT_CUSTOMER_ID
+    if requested not in ACCOUNTS:
+        return web.json_response(
+            {
+                "error": f"unknown customer {requested!r}",
+                "known": sorted(ACCOUNTS),
+            },
+            status=400,
+        )
+
     key, secret = os.getenv("LIVEKIT_API_KEY"), os.getenv("LIVEKIT_API_SECRET")
     url = os.getenv("LIVEKIT_URL")
     if not (key and secret and url):
@@ -57,6 +76,7 @@ async def issue_token(request: web.Request) -> web.Response:
         api.AccessToken(key, secret)
         .with_identity(identity)
         .with_name("Customer")
+        .with_metadata(json.dumps({"customer_id": requested}))
         .with_grants(
             api.VideoGrants(
                 room_join=True, room=room,
@@ -65,7 +85,31 @@ async def issue_token(request: web.Request) -> web.Response:
         )
         .to_jwt()
     )
-    return web.json_response({"token": token, "url": url, "room": room})
+    return web.json_response(
+        {"token": token, "url": url, "room": room, "customer_id": requested}
+    )
+
+
+async def personas(_: web.Request) -> web.Response:
+    """The accounts a caller can be. Drives the picker in the client."""
+    return web.json_response(
+        {
+            "default": DEFAULT_CUSTOMER_ID,
+            "accounts": [
+                {
+                    "customer_id": a.customer_id,
+                    "name": a.name,
+                    "card_last4": a.card_last4,
+                    "days_past_due": a.days_past_due,
+                    # The demo operator needs to know which account tests
+                    # which rule. The late-fee threshold is the interesting
+                    # one: two of these four sit either side of it.
+                    "late_fee_applies": a.outstanding_inr > LATE_FEE_THRESHOLD_INR,
+                }
+                for a in ACCOUNTS.values()
+            ],
+        }
+    )
 
 
 async def index(_: web.Request) -> web.FileResponse:
@@ -144,6 +188,7 @@ def build_app() -> web.Application:
     app.router.add_get("/", index)
     app.router.add_get("/dashboard", dashboard)
     app.router.add_get("/token", issue_token)
+    app.router.add_get("/api/personas", personas)
     app.router.add_get("/api/outcomes", list_outcomes)
     app.router.add_get("/api/stream", stream_outcomes)
     app.router.add_static("/", WEB_DIR, show_index=False)

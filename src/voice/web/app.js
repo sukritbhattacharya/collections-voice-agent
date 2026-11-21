@@ -25,7 +25,44 @@ const el = {
   outcomeWrap: document.getElementById("outcome-wrap"),
   outcome: document.getElementById("outcome"),
   intro: document.getElementById("intro"),
+  persona: document.getElementById("persona"),
+  personaHint: document.getElementById("persona-hint"),
 };
+
+// The accounts available to call. Loaded once so a demo can switch persona
+// between calls from the handset, with no restart on the laptop. The late-fee
+// threshold is surfaced because two fixtures sit either side of it, and which
+// side a call is on changes what a correct answer sounds like.
+async function loadPersonas() {
+  if (!el.persona) return;
+  try {
+    const res = await fetch("/api/personas");
+    if (!res.ok) return;
+    const { accounts, default: fallback } = await res.json();
+    el.persona.innerHTML = "";
+    for (const a of accounts) {
+      const opt = document.createElement("option");
+      opt.value = a.customer_id;
+      opt.textContent = `${a.name} - ${a.days_past_due} days overdue`;
+      opt.dataset.lateFee = a.late_fee_applies ? "yes" : "no";
+      if (a.customer_id === fallback) opt.selected = true;
+      el.persona.appendChild(opt);
+    }
+    describePersona();
+  } catch {
+    /* non-fatal: the call falls back to the server's default account */
+  }
+}
+
+function describePersona() {
+  if (!el.persona || !el.personaHint) return;
+  const opt = el.persona.selectedOptions[0];
+  if (!opt) return;
+  el.personaHint.textContent =
+    opt.dataset.lateFee === "yes"
+      ? "Balance is over the late-fee threshold, so the fee applies."
+      : "Balance is under the late-fee threshold, so no late fee is due.";
+}
 
 let room = null;
 let wakeLock = null;
@@ -191,7 +228,8 @@ async function startCall() {
   setStatus("Connecting", "connecting");
 
   try {
-    const res = await fetch("/token");
+    const chosen = el.persona && el.persona.value;
+    const res = await fetch(chosen ? `/token?customer=${encodeURIComponent(chosen)}` : "/token");
     if (!res.ok) throw new Error(`token request failed (${res.status})`);
     const { token, url } = await res.json();
 
@@ -306,6 +344,8 @@ async function endCall({ remote }) {
 }
 
 el.call.onclick = startCall;
+if (el.persona) el.persona.onchange = describePersona;
+loadPersonas();
 
 /* Tell the user before they tap, not after it fails. */
 const upfront = secureContextProblem();

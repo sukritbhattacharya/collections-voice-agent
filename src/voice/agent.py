@@ -151,11 +151,44 @@ def prewarm(proc) -> None:
     proc.userdata["vad"] = silero.VAD.load()
 
 
+def resolve_account(ctx: JobContext):
+    """Which customer this call is about.
+
+    The caller's join token carries the account as participant metadata, so a
+    demo can switch persona between calls without restarting the worker --
+    which matters when someone hands you three personas live and expects a
+    call on each. `CALL_CUSTOMER_ID` remains the fallback for headless runs
+    and for the smoke test, which mints its own token.
+
+    Resolution is deliberately forgiving: an unrecognised id falls back to the
+    default and logs, because losing the job to a KeyError mid-demo is a worse
+    outcome than calling the wrong fixture. The web server validates the id
+    before minting a token, so a bad value should never reach here. See D-053.
+    """
+    requested: str | None = None
+    for participant in ctx.room.remote_participants.values():
+        if not participant.metadata:
+            continue
+        try:
+            requested = json.loads(participant.metadata).get("customer_id")
+        except (ValueError, AttributeError):
+            continue
+        if requested:
+            break
+
+    requested = requested or os.getenv("CALL_CUSTOMER_ID") or DEFAULT_CUSTOMER_ID
+    if requested not in ACCOUNTS:
+        logger.warning(
+            "unknown customer %r; falling back to %s", requested, DEFAULT_CUSTOMER_ID
+        )
+        requested = DEFAULT_CUSTOMER_ID
+    return ACCOUNTS[requested]
+
+
 async def entrypoint(ctx: JobContext) -> None:
     await ctx.connect()
 
-    customer_id = os.getenv("CALL_CUSTOMER_ID", DEFAULT_CUSTOMER_ID)
-    account = ACCOUNTS[customer_id]
+    account = resolve_account(ctx)
     version = os.getenv("AGENT_VERSION", "v3")
 
     core = CollectionsAgent(account=account, version=version)

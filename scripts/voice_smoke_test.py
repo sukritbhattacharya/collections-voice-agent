@@ -17,6 +17,7 @@ checked by hand.
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import sys
 import time
@@ -25,12 +26,23 @@ import uuid
 from dotenv import load_dotenv
 from livekit import api, rtc
 
+sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1]))
+from src.core.policy import ACCOUNTS, DEFAULT_CUSTOMER_ID  # noqa: E402
+
 load_dotenv()
 
 TIMEOUT_S = 45
 
 
 async def main() -> int:
+    # Optional: which account to call, e.g.
+    #   uv run python scripts/voice_smoke_test.py MB-9023
+    customer = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_CUSTOMER_ID
+    if customer not in ACCOUNTS:
+        print(f"  unknown customer {customer!r}; known: {', '.join(sorted(ACCOUNTS))}")
+        return 1
+    print(f"  calling as {ACCOUNTS[customer].name} ({customer})")
+
     url = os.getenv("LIVEKIT_URL")
     key = os.getenv("LIVEKIT_API_KEY")
     secret = os.getenv("LIVEKIT_API_SECRET")
@@ -42,6 +54,9 @@ async def main() -> int:
     token = (
         api.AccessToken(key, secret)
         .with_identity("smoke-test-caller")
+        # Mirrors what the web client sends, so this also proves the account
+        # selection path the live demo depends on. See D-053.
+        .with_metadata(json.dumps({"customer_id": customer}))
         .with_name("Smoke Test")
         .with_grants(api.VideoGrants(room_join=True, room=room_name,
                                      can_publish=True, can_subscribe=True))

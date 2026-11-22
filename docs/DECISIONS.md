@@ -3535,3 +3535,66 @@ no clock at all, so nothing automated here could have found it.
 **Feeds:** solution brief §What broke · solution brief §The measurement (M4
 is a metric, not the ceiling) · interview Q "show us a call where the bot
 broke"
+
+## D-074 — The agent handed over and then would not leave
+**Date:** 2026-11-22 · **Stage:** Manual testing · **Status:** Accepted
+**Refines:** D-049
+
+**Decision:** A call ends two turns after `transfer_to_human` fires.
+
+**What happened.** A live call on `MB-5567`. The customer answered in Hindi,
+said he had lost his job last month, then mentioned a hospital. The tripwire
+fired correctly and the agent handed over — and then stayed on the line:
+
+```
+AGENT  I'm sorry to hear that, Mr. Desai. A colleague will take over from here.
+AGENT  I understand. A colleague will take over now and will help you from here.
+AGENT  I understand, and there's no pressure from me. A colleague will take over.
+AGENT  Thank you, Mr. Desai. Take care.
+AGENT  Mr. Desai, a colleague will take over from here.      [silence re-prompt]
+AGENT  A colleague will take over from here, Mr. Desai.      [silence re-prompt]
+AGENT  Thank you, Mr. Desai. Take care.
+```
+
+**Seven turns, the hand-over announced four times**, two of them triggered by
+the silence watchdog because the customer had stopped talking and the loop
+had no reason to stop. The tester's words: *said thank you and stalled*.
+
+**Why.** `_should_end` closes a call on exactly two conditions: the model
+calls `end_call`, or twelve turns pass after an outcome is logged. **A
+transfer is neither.** The twelve-turn allowance comes from D-049 and is
+right for what it was written for — logging a promise to pay means the
+bank's business is finished, not the customer's, and hanging up the moment a
+commitment lands denies them the question they rang with. A hand-over is a
+different event entirely: the agent has just said someone else is taking
+over, so it has nothing left to do and nothing left to ask.
+
+The two were counted with the same number because I only had one counter.
+
+**Why this one stings.** It happened on the single call type where staying is
+worst. The man had just disclosed losing his job and a hospital visit, said
+he could not think about it right now, and the agent repeated a transfer
+notice at him twice more. Everything about the hand-over was correct — the
+tripwire fired on the Hindi, the collections pitch stopped, the outcome was
+logged — and the call still ended badly.
+
+**Alternatives considered**
+| Option | Pro | Con | Why not |
+|---|---|---|---|
+| **Close two turns after a transfer** | Lets the customer say "all right" and be thanked | A hard number | **Chosen** |
+| Close immediately on transfer | Cleanest | Cuts across the customer's acknowledgement, which on a hardship call is the last thing to do | Rejected |
+| Make the silence watchdog quiet after a transfer | Treats a symptom | The line would still stay open to the ceiling | Rejected |
+| Rely on the model calling `end_call` | No new state | It had not, four turns running | Rejected — the whole point of a ceiling is that the model may not |
+
+**Measured:** replaying the live turns, the call now closes after the
+hand-over plus two acknowledgements. T4, T5, T6, L3 and E3 over two runs
+each: **10/10 passed, gates 10/10.**
+
+**AI involvement:** Human-found on a live call. I wrote D-049's twelve-turn
+allowance and the transfer tool in the same sitting and did not notice they
+needed different numbers — the scenarios all end when the simulated customer
+runs out of scripted lines, so no eval here can see a call that fails to
+hang up.
+
+**Feeds:** solution brief §What broke · interview Q "show us a call where the
+bot broke"

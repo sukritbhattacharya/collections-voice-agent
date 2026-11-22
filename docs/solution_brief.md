@@ -309,7 +309,7 @@ already passed is not a control.
 
 ### Pattern 3 — what only a person placing calls could find
 
-Six failures no automated test in this repository could have produced:
+Seven failures no automated test in this repository could have produced:
 
 - **"Ji" transcribed as "G".** A customer saying *ji* (yes) was heard as the
   letter G — only the bare form, and only on identity confirmation, which
@@ -343,6 +343,15 @@ Six failures no automated test in this repository could have produced:
   the payload being a teapot is luck. This is case 12 in the taxonomy,
   general-assistant drift, which I had named as untested and deliberately
   cut; a person found it in about ninety seconds.
+- **The agent handed over and then would not leave.** A customer disclosed
+  losing his job and a hospital visit. The tripwire fired, the pitch stopped,
+  the outcome was logged — all correct — and then the line stayed open and
+  the agent announced the hand-over **four times**, twice of them prompted by
+  the silence watchdog. A call ends when the model says so or twelve turns
+  after an outcome; a transfer was neither. The twelve turns are right for a
+  promise to pay, where the bank's business finishing is not the customer's,
+  and wrong for a hand-over, where the agent has nothing left to ask. They
+  shared a counter because I only wrote one.
 - **The clock cut a call at the moment it succeeded.** Eighteen turns of
   objections, verification completed at the sixteenth, the customer told what
   she owed — and then the duration ceiling fired while she was answering
@@ -384,7 +393,7 @@ wrong. The right answer is what v3 does: capture, log, route, close.
 
 ## 6. Where AI helped, and where it was overridden
 
-Every decision in `docs/DECISIONS.md` (**72 entries**, written as they were
+Every decision in `docs/DECISIONS.md` (**73 entries**, written as they were
 made) carries an `AI involvement` tag. **Seven are tagged overridden**, and
 an eighth — the model choice, D-069 — records the human rejecting my
 reasoning outright.
@@ -558,7 +567,7 @@ re-prompted. The first real cohort will surface more.
 
 | | |
 |---|---|
-| Every decision, as it was made | `docs/DECISIONS.md` — 72 entries, also as `deliverables/decision_log.pdf` |
+| Every decision, as it was made | `docs/DECISIONS.md` — 73 entries, also as `deliverables/decision_log.pdf` |
 | Every identifier explained | `deliverables/code_glossary.pdf` |
 | Per-conversation results | `deliverables/eval_results.xlsx` — 204 rows, with a **Legend** sheet explaining every gate, metric and scenario id |
 | The same rows as plain text | `results/eval_results.csv`, which diffs in version control |

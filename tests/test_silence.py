@@ -250,3 +250,50 @@ async def test_a_normal_call_is_not_marked_truncated():
     a.respond("Yes, that's me.")
     outcome = await a.finish()
     assert outcome.ended_on_ceiling is False
+
+
+# -- a hand-over ends the call ---------------------------------------------
+
+def _transferred(script):
+    from src.core.agent_core import CollectionsAgent
+    a = CollectionsAgent(
+        account=ACCOUNTS["MB-5567"], version="v3",
+        client=StubClient(script), webhook_url="",
+    )
+    a.open_call()
+    return a
+
+
+def test_a_hand_over_closes_the_call_within_two_turns():
+    """A live hardship call did not. The customer disclosed job loss and a
+    hospital, the agent handed over, and then the line stayed open: it said
+    "a colleague will take over from here" four times, twice of them
+    prompted by the silence watchdog, because nothing told the loop it was
+    done. See D-074."""
+    from src.core.agent_core import MAX_TURNS_AFTER_TRANSFER
+
+    a = _transferred(["A colleague will take over."] * 8)
+    a.state.transfer_requested = True
+    closed_after = None
+    for i in range(1, 8):
+        a.respond("okay")
+        if a.ended:
+            closed_after = i
+            break
+    assert closed_after is not None, "a transferred call never closed"
+    assert closed_after <= MAX_TURNS_AFTER_TRANSFER + 1
+
+
+def test_a_promise_to_pay_still_leaves_room_for_questions():
+    """The opposite case, and the reason the two are counted separately: the
+    bank's business being finished is not the customer's business being
+    finished."""
+    from src.core.agent_core import MAX_TURNS_AFTER_OUTCOME, MAX_TURNS_AFTER_TRANSFER
+
+    assert MAX_TURNS_AFTER_OUTCOME > MAX_TURNS_AFTER_TRANSFER
+
+
+def test_an_untransferred_call_is_unaffected():
+    a = _transferred(["Thanks for confirming."] * 4)
+    a.respond("Yes, that's me.")
+    assert not a.ended

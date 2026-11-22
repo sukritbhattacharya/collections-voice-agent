@@ -163,6 +163,14 @@ MAX_TURNS_AFTER_OUTCOME = 12
 #: a call that is already unwelcome it reads as harassment.
 MAX_SILENCE_PROMPTS = 2
 
+#: How many turns a call may run after the agent has handed over. A promise
+#: to pay is the bank's business finishing while the customer's may not be,
+#: so that case deliberately stays open (MAX_TURNS_AFTER_OUTCOME). A transfer
+#: is not the same event: the agent has just said a colleague will take over,
+#: so it has nothing left to do and nothing left to ask. Two turns is enough
+#: for the customer to say "all right" and be thanked. See D-074.
+MAX_TURNS_AFTER_TRANSFER = 2
+
 #: Spoken verbatim when the line has been silent through every re-prompt.
 #: Deterministic rather than generated: it is the last thing the customer may
 #: hear, it must not invent a commitment nobody made, and a model asked to
@@ -250,6 +258,7 @@ class CollectionsAgent:
         # neither of them. See D-047.
         self._turn_lock = threading.Lock()
         self._turns_after_outcome = 0
+        self._turns_after_transfer = 0
         self.extractor_error: str | None = None
         #: Figures the customer has volunteered. Echoing one back is correct
         #: call handling, not a disclosure.
@@ -559,6 +568,17 @@ class CollectionsAgent:
         """
         if self.state.call_closed:
             return True
+
+        # A hand-over ends the call, shortly. Without this the line stayed
+        # open on the one kind of call where staying is worst: a customer who
+        # has just disclosed job loss and a hospital heard "a colleague will
+        # take over from here" four times, twice of them prompted by the
+        # silence watchdog, because nothing told the loop the agent was done.
+        if self.state.transfer_requested:
+            self._turns_after_transfer += 1
+            if self._turns_after_transfer > MAX_TURNS_AFTER_TRANSFER:
+                return True
+
         if self.registry.outcome is None:
             return False
         self._turns_after_outcome += 1

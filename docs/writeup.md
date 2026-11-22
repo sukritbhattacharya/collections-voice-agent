@@ -59,7 +59,7 @@ Six layers, each answering a different failure:
 | Orchestration | LiveKit Agents (Python) | Code-first; supplies VAD, turn detection and barge-in. Speech-to-text, model and speech stay three separately chosen plugins rather than one gateway that hides the choice. |
 | Speech to text | Deepgram Nova-3, `language=multi` | Streaming with interim results and endpointing, which sub-second turn-taking requires; `language=multi` is the documented Hindi–English code-switching mode. **No verified public Hinglish accuracy figure exists, so I measured it rather than cite a datasheet.** |
 | Text to speech | Azure `en-IN-NeerjaNeural`, `empathetic` 1.3 | Chosen on measured time-to-first-byte across **ten** voice and prosody combinations. The warmest option was also the fastest, 281 ms. Two faster-looking HD voices lost on 1,100 ms. |
-| Model | Claude Haiku 5.5 | The cheapest model that cleared the compliance bar, decided by the table in *The measurement* below. A CLI flag, so the claim is re-testable. |
+| Model | Claude Sonnet 5.5 | Decided on 51 conversations per model, not asserted: it meets the outcome-capture target Haiku misses and needs the output filter a sixth as often. Haiku stays a one-flag cost lever — see *Why this language model*. |
 | Judge | Claude Sonnet 5.5 | Offline, for what rules cannot decide: tone, whether a deflection was clean. |
 
 ---
@@ -254,9 +254,10 @@ patterns, each with more instances than I expected.
 
 ### Pattern 1 — the instrument, nine times
 
-The product was fine and the thing measuring it was not. **Nine times** —
-`D-024`, `D-031`, `D-035`, `D-037`, `D-043`, `D-045`, `D-055`, `D-065` and the
-scorer correction above, each written up in the decision log.
+The product was fine and the thing measuring it was not. **Eleven times** —
+`D-024`, `D-031`, `D-035`, `D-037`, `D-043`, `D-045`, `D-055`, `D-065`,
+`D-066`, `D-068` and `D-070`, each written up in the decision log. Two of
+them landed on the last day, while preparing this document.
 
 The sharpest: the live dashboard read the last N records *then* filtered for
 voice calls. Evaluation runs append to the same file, so **seven real calls
@@ -270,9 +271,17 @@ was not computable from any of it. Also a latency figure that measured how
 long the agent *talked* rather than how long the customer *waited*, reporting
 12,641 ms on a call that felt responsive.
 
+The last two arrived while writing this. The stand-in CRM is a free endpoint
+that **accepts fifty requests and is then disabled**; ours was at thirty-one,
+and `deliver()` logged nothing on success or failure — so when it filled, the
+call would have completed, the outcome would have been valid, and the only
+symptom would have been a pane that stayed empty. And the test suite had been
+appending to the CRM mirror for the whole build: forty-six fake calls in the
+file the live path writes to.
+
 If I carry one thing out of this build it is that **the measurement deserves
 the same review as the code and almost never gets it**, because a number that
-looks plausible does not announce itself as wrong. Every one of these nine was
+looks plausible does not announce itself as wrong. Every one of these was
 found by accident, while looking at something else — none by a test, because
 the tests encoded the same assumption the instrument did.
 

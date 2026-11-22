@@ -175,7 +175,7 @@ Amounts are left alone, since place value is correct for a quantity.
 | Orchestration | LiveKit Agents (Python) | Code-first. Supplies voice activity detection, turn detection and barge-in. Speech-to-text, the model and text-to-speech stay three separately chosen, swappable plugins rather than one managed gateway. |
 | Speech to text | Deepgram Nova-3, `language=multi` | Streaming with interim results and endpointing, which sub-second turn-taking requires. `language=multi` is the documented code-switching mode for Hindi–English. Key payment terms are boosted. |
 | Text to speech | Azure `en-IN-NeerjaNeural`, `empathetic` at 1.3 | Chosen on measured time-to-first-byte across ten voice and prosody combinations. The warmest option was also the fastest, at 281 ms. Aura-2 remains a one-line swap. |
-| Conversation model | Claude Haiku 5.5 | The cheapest model that cleared the compliance bar, decided by the evaluation table rather than by preference. A CLI flag. |
+| Conversation model | Claude Sonnet 5.5 | Decided by the evaluation table rather than by preference: 51 conversations per model, where Sonnet meets the outcome-capture target Haiku misses and needs the output filter a sixth as often. Haiku is 17× cheaper and remains a one-flag swap for volume. |
 | Judge | Claude Sonnet 5.5 | Offline scoring of what rules cannot decide — tone, whether a deflection was clean. Validated against hand scoring. |
 | Transport | LiveKit room, responsive web client | Works on a desktop and on a phone held to the ear, which is a closer acoustic proxy to a real call. |
 
@@ -305,7 +305,7 @@ Delivered to `OUTCOME_WEBHOOK_URL` and mirrored to `results/outcomes.jsonl`. Tha
   "turn_count": 7,
   "latency": {"p50_ms": 780, "p95_ms": 1420, "turns_measured": 7},
   "client": {"surface": "web", "platform": "ios", "browser": "safari"},
-  "model": "claude-haiku-5-5",
+  "model": "claude-sonnet-5-5",
   "agent_version": "v3",
   "transcript": [{"role": "agent", "text": "...", "otp_verified": false}]
 }

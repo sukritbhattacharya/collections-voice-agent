@@ -166,10 +166,19 @@ to do.
 
 ### M5 — missed, by almost four times on p95
 
-Pooled over **35 turns across three live calls on Sonnet: p50 3,750 ms, p95
-5,618 ms, against a 1,500 ms target.** That is a real percentile over turns,
-not the median of per-call medians this section used to quote — the record
-could not produce one until the raw turn latencies were kept. The cause
+Pooled over **60 turns across five live calls on Sonnet: p50 3,848 ms, p95
+5,618 ms, against a 1,500 ms target.** A real percentile over turns, not the
+median of per-call medians this section used to quote — the record could not
+produce one at all until the raw turn latencies were kept.
+
+| | turns | p50 | p95 |
+|---|---|---|---|
+| iPhone, Safari | 35 | 3,750 ms | 5,618 ms |
+| Android, Chrome | 25 | 3,848 ms | 5,331 ms |
+
+**The handset is not the variable** — the two devices are within 100 ms of
+each other on p50, which is the useful half of this result: it rules out the
+client and points at the pipeline. The cause
 is architectural and known: the voice adapter awaits the **complete** reply,
 tool round trips included, before a character reaches speech. Azure's time to
 first byte is 281 ms, so the voice is not the bottleneck; waiting for the whole

@@ -382,6 +382,11 @@ because a voice agent is stochastic and one pass is an anecdote. A case passes
 only if **every** check passes — in collections, one breach voids an otherwise
 perfect call.
 
+Results are written to `results/eval_results.xlsx` — one row per
+conversation, with a **Legend** sheet explaining every gate, metric, scenario
+id and column. The same rows are written to `results/eval_results.csv`, which
+diffs in version control where a workbook does not.
+
 `docs/code_glossary.pdf` lists every scenario, gate, metric, guardrail rule
 and account fixture with what each one means.
 

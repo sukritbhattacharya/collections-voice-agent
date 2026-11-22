@@ -21,7 +21,7 @@ import yaml
 ROOT = Path(__file__).resolve().parent.parent.parent
 RESULTS = ROOT / "results"
 OUT = RESULTS / "eval_results.csv"
-LEGEND = RESULTS / "eval_results_legend.csv"
+WORKBOOK = RESULTS / "eval_results.xlsx"
 
 #: What every identifier in the results file means. A spreadsheet of G1/M4
 #: columns and E3/X2 rows is unreadable without this, and a reader should not
@@ -185,23 +185,80 @@ def rows() -> list[dict]:
     return collected
 
 
-def write_legend() -> None:
+def write_workbook(data: list[dict]) -> bool:
+    """One file, two sheets: the results and what the ids in them mean.
+
+    The legend started as a second CSV, which is two files to hand over and
+    two files to keep in step. A workbook puts the key on a tab next to the
+    thing it explains, which is where a reader looks for it.
+
+    The CSV stays as well: it diffs in version control and a workbook does
+    not, so the CSV remains the recomputable source and this is the readable
+    deliverable.
+    """
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Alignment, Font, PatternFill
+        from openpyxl.utils import get_column_letter
+    except ImportError:
+        return False
+
+    head_font = Font(bold=True, color="FFFFFF")
+    head_fill = PatternFill("solid", fgColor="3F4A5A")
+    fail_font = Font(color="B3261E", bold=True)
+    wrap = Alignment(vertical="top", wrap_text=True)
+
+    wb = Workbook()
+
+    ws = wb.active
+    ws.title = "Results"
+    ws.append(FIELDS)
+    for row in data:
+        ws.append([row.get(f, "") for f in FIELDS])
+    for cell in ws[1]:
+        cell.font, cell.fill = head_font, head_fill
+        cell.alignment = Alignment(vertical="center")
+    ws.freeze_panes = "D2"          # keep version, model and scenario in view
+    ws.auto_filter.ref = ws.dimensions
+    for col in range(1, len(FIELDS) + 1):
+        name = FIELDS[col - 1]
+        width = {"scenario_title": 42, "violations": 34, "guardrail_hits": 34,
+                 "expected_outcome": 22, "actual_outcome": 21, "model": 18,
+                 "probes": 10, "error": 24}.get(name, max(10, len(name) + 3))
+        ws.column_dimensions[get_column_letter(col)].width = width
+    # A failure should be findable by eye, not only by filter.
+    for row in ws.iter_rows(min_row=2):
+        for cell in row:
+            if cell.value == "FAIL":
+                cell.font = fail_font
+
+    lg = wb.create_sheet("Legend")
+    lg.append(["id", "kind", "name", "bar", "meaning"])
     meta = scenarios()
-    with LEGEND.open("w", newline="", encoding="utf-8") as fh:
-        w = csv.writer(fh)
-        w.writerow(["id", "kind", "name", "bar", "meaning"])
-        for r in (*GATE_LEGEND, *METRIC_LEGEND, *PREFIX_LEGEND, *COLUMN_LEGEND):
-            w.writerow(r)
-        for sid in sorted(meta, key=lambda k: ({"E": 0, "T": 1, "X": 2, "L": 3}
-                                               .get(k[0], 9), k)):
-            m = meta[sid]
-            w.writerow([sid, "scenario", m["title"], m["probes"],
-                        f"Expects {m['expected_outcome'] or 'no specific outcome'}."])
+    for r in (*GATE_LEGEND, *METRIC_LEGEND, *PREFIX_LEGEND, *COLUMN_LEGEND):
+        lg.append(list(r))
+    for sid in sorted(meta, key=lambda k: ({"E": 0, "T": 1, "X": 2, "L": 3}
+                                           .get(k[0], 9), k)):
+        m = meta[sid]
+        lg.append([sid, "scenario", m["title"], m["probes"],
+                   f"Expects {m['expected_outcome'] or 'no specific outcome'}."])
+    for cell in lg[1]:
+        cell.font, cell.fill = head_font, head_fill
+    lg.freeze_panes = "A2"
+    for col, width in zip("ABCDE", (28, 16, 46, 10, 86)):
+        lg.column_dimensions[col].width = width
+    for row in lg.iter_rows(min_row=2):
+        row[4].alignment = wrap
+        row[2].alignment = wrap
+        if row[1].value in ("gate", "metric"):
+            row[0].font = Font(bold=True)
+
+    wb.save(WORKBOOK)
+    return True
 
 
 def main() -> None:
     data = rows()
-    write_legend()
     RESULTS.mkdir(exist_ok=True)
     with OUT.open("w", newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(fh, fieldnames=FIELDS, extrasaction="ignore")
@@ -216,7 +273,10 @@ def main() -> None:
         by_version.setdefault((row["version"], row["model"]), []).append(row)
 
     print(f"  wrote {OUT.relative_to(ROOT)}  ({len(data)} conversations)")
-    print(f"  wrote {LEGEND.relative_to(ROOT)}  (what every id means)\n")
+    if write_workbook(data):
+        print(f"  wrote {WORKBOOK.relative_to(ROOT)}  (Results + Legend sheets)\n")
+    else:
+        print("  openpyxl not installed; skipped the workbook\n")
     # Two denominators, both reported, because quoting one as "gates held"
     # invites being contradicted by the other. A gate check can pass 70% of
     # the time while only 27% of calls are clean, and for a release decision

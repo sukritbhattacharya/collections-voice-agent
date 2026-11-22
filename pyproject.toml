@@ -27,6 +27,13 @@ dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.24.0",
 ]
+# Only for building the deliverables: the results workbook and the PDFs.
+# Kept out of the default install so the agent itself has no document
+# dependencies.
+docs = [
+    "openpyxl>=3.1.0",
+    "reportlab>=4.0.0",
+]
 
 [build-system]
 requires = ["hatchling"]

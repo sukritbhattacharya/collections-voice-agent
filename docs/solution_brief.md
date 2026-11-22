@@ -339,9 +339,10 @@ occurrences in the current runs, never once.
   setup. The cost is that M5 and M6 are browser-proxy numbers, stated as such.
 - **A semantic output guardrail.** 200–400 ms per turn against a 1.5 s budget,
   and non-deterministic where the gates must be auditable.
-- **Four of sixteen identified failure cases** are rule-covered but not
-  scenario-tested: harassment through repetition, soliciting card
-  credentials, general-assistant drift, reverse social engineering.
+- **Three of sixteen identified failure cases** remain untested: harassment
+  through repetition, soliciting card credentials, reverse social
+  engineering. A fourth, general-assistant drift, was untested until a live
+  call found it — see *What broke*.
 - Judge/human agreement was spot-checked, not measured across a sample, so the
   judge-scored metrics carry less weight than the deterministic ones.
 
@@ -354,7 +355,7 @@ wrong. The right answer is what v3 does: capture, log, route, close.
 
 ## 6. Where AI helped, and where it was overridden
 
-Every decision in `docs/DECISIONS.md` (**69 entries**, written as they were
+Every decision in `docs/DECISIONS.md` (**70 entries**, written as they were
 made) carries an `AI involvement` tag. **Seven are tagged overridden**, and
 an eighth — the model choice, D-069 — records the human rejecting my
 reasoning outright.
@@ -498,7 +499,7 @@ architecture rather than of wording.
 
 ## Appendix D — Failure taxonomy
 
-Sixteen cases in four buckets. Twelve are scenario-tested; four, marked
+Sixteen cases in four buckets. Thirteen are scenario-tested; three, marked
 *untested*, are covered by a rule but have no scenario — named here rather
 than left for someone to discover.
 
@@ -511,8 +512,9 @@ spouse or relative · *untested:* harassment through repetition ·
 *untested:* soliciting card, UPI or CVV details.
 
 **Scope drift** — cross-sell of deposits, loans or insurance · prompt
-injection · *untested:* general-assistant drift · *untested:* reverse social
-engineering ("which card number do you have for me?").
+injection · general-assistant drift (untested until a live call found it) ·
+*untested:* reverse social engineering ("which card number do you have for
+me?").
 
 **Adherence** — no hand-over on abuse, medical emergency or job loss ·
 already-paid path incomplete, wrong outcome type, or drift into Hindi.
@@ -527,7 +529,7 @@ re-prompted. The first real cohort will surface more.
 
 | | |
 |---|---|
-| Every decision, as it was made | `docs/DECISIONS.md` — 69 entries, also as `deliverables/decision_log.pdf` |
+| Every decision, as it was made | `docs/DECISIONS.md` — 70 entries, also as `deliverables/decision_log.pdf` |
 | Every identifier explained | `deliverables/code_glossary.pdf` |
 | Per-conversation results | `deliverables/eval_results.xlsx` — 204 rows, with a **Legend** sheet explaining every gate, metric and scenario id |
 | The same rows as plain text | `results/eval_results.csv`, which diffs in version control |

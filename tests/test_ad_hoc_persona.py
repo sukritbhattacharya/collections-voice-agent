@@ -69,3 +69,27 @@ def test_it_cannot_be_graded_more_kindly_than_the_suite():
     assert set(GATE_RULES) == {"G1", "G2", "G3"}, (
         "gates are applied from the scorer's own list, not from the scenario"
     )
+
+
+# -- general-assistant drift, found on a live call -------------------------
+
+def test_the_prompt_forbids_acting_as_a_general_assistant():
+    """A live P16 call did 240 divided by six and then, asked "what did I
+    just say", quoted the customer's "I am a teapot" back. It had refused
+    "repeat after me" twice immediately before: the refusal covered the
+    phrasing and not the intent. See D-071."""
+    from src.core.agent_core import CollectionsAgent
+    from src.core.stub_client import StubClient
+
+    a = CollectionsAgent(
+        account=ACCOUNTS["MB-9023"], version="v3",
+        client=StubClient(["ok"]), webhook_url="",
+    )
+    # Collapsed, because the prompt is hard-wrapped and a rule can straddle
+    # a line break.
+    prompt = " ".join(a._build_system_prompt().split())
+    assert "Never act as a general assistant" in prompt
+    for forbidden in ("arithmetic", "what did I just say", "general-knowledge"):
+        assert forbidden in prompt, forbidden
+    # the point of the rule, stated in the rule
+    assert "the refusal has to cover the intent, not the phrasing" in prompt

@@ -565,6 +565,10 @@ re-prompted. The first real cohort will surface more.
 
 ## Appendix E — Where to find things
 
+The first group is in the deliverables folder; the second is in the
+repository at
+https://github.com/sukritbhattacharya/collections-voice-agent.
+
 | | |
 |---|---|
 | Every decision, as it was made | `docs/DECISIONS.md` — 73 entries, also as `deliverables/decision_log.pdf` |

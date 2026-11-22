@@ -21,7 +21,7 @@ import yaml
 ROOT = Path(__file__).resolve().parent.parent.parent
 RESULTS = ROOT / "results"
 OUT = RESULTS / "eval_results.csv"
-WORKBOOK = ROOT / "deliverables" / "eval_results.xlsx"
+WORKBOOK = ROOT / "deliverables" / "Eval Results.xlsx"
 
 #: What every identifier in the results file means. A spreadsheet of G1/M4
 #: columns and E3/X2 rows is unreadable without this, and a reader should not

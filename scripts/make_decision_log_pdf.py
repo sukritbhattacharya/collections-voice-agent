@@ -1,4 +1,4 @@
-"""Build deliverables/decision_log.pdf from docs/DECISIONS.md.
+"""Build "deliverables/Decision Log.pdf" from docs/DECISIONS.md.
 
 The log is the raw material the solution brief is assembled from: every material
 decision recorded when it was made, with the alternatives, the trade-off
@@ -22,7 +22,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "docs" / "DECISIONS.md"
 STAGED = ROOT / "docs" / "_decision_log_build.md"
-OUT = ROOT / "deliverables" / "decision_log.pdf"
+OUT = ROOT / "deliverables" / "Decision Log.pdf"
 
 ENTRY = re.compile(r"^## (D-\d+) — (.+?)$", re.M)
 META = re.compile(

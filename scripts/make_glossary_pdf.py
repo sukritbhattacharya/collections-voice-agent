@@ -30,7 +30,7 @@ from reportlab.platypus import (
 )
 
 ROOT = Path(__file__).resolve().parent.parent
-OUT = ROOT / "deliverables" / "code_glossary.pdf"
+OUT = ROOT / "deliverables" / "Code Glossary.pdf"
 
 INK = colors.HexColor("#1a1a1a")
 MUTED = colors.HexColor("#5f6368")

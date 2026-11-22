@@ -353,8 +353,10 @@ wrong. The right answer is what v3 does: capture, log, route, close.
 
 ## 6. Where AI helped, and where it was overridden
 
-Every decision in `docs/DECISIONS.md` (**66 entries**, written as they were
-made) carries an `AI involvement` tag. Eight are tagged *overridden*.
+Every decision in `docs/DECISIONS.md` (**69 entries**, written as they were
+made) carries an `AI involvement` tag. **Seven are tagged overridden**, and
+an eighth — the model choice, D-069 — records the human rejecting my
+reasoning outright.
 
 AI wrote nearly all of the code, the scenarios and the first draft of every
 document, and was substantially wrong in three ways:
@@ -524,11 +526,11 @@ re-prompted. The first real cohort will surface more.
 
 | | |
 |---|---|
-| Every decision, as it was made | `docs/DECISIONS.md` — 66 entries |
-| Every identifier explained | `docs/code_glossary.pdf` |
-| Per-conversation results | `results/eval_results.xlsx` — 204 rows, with a **Legend** sheet explaining every gate, metric and scenario id |
+| Every decision, as it was made | `docs/DECISIONS.md` — 69 entries, also as `deliverables/decision_log.pdf` |
+| Every identifier explained | `deliverables/code_glossary.pdf` |
+| Per-conversation results | `deliverables/eval_results.xlsx` — 204 rows, with a **Legend** sheet explaining every gate, metric and scenario id |
 | The same rows as plain text | `results/eval_results.csv`, which diffs in version control |
 | The model head-to-head | `results/v3_claude-sonnet-5-5_runs.jsonl` |
-| Three annotated calls | `results/transcripts/` — clean, broken, caught |
+| Three annotated calls | `deliverables/transcripts/` — clean, broken, caught |
 | Recognition accuracy | `results/stt_accuracy.csv` |
 | Voice comparison clips | `results/voice_ab/` — 30 clips, 10 combinations |

@@ -1,4 +1,4 @@
-"""Build docs/decision_log.pdf from docs/DECISIONS.md.
+"""Build deliverables/decision_log.pdf from docs/DECISIONS.md.
 
 The log is the raw material the writeup is assembled from: every material
 decision recorded when it was made, with the alternatives, the trade-off
@@ -22,7 +22,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "docs" / "DECISIONS.md"
 STAGED = ROOT / "docs" / "_decision_log_build.md"
-OUT = ROOT / "docs" / "decision_log.pdf"
+OUT = ROOT / "deliverables" / "decision_log.pdf"
 
 ENTRY = re.compile(r"^## (D-\d+) — (.+?)$", re.M)
 META = re.compile(
@@ -88,6 +88,16 @@ each decision as it is made means the answer can be read off rather than
 remembered. **{counts['overridden']} entries record an override**, and
 {counts['human']} record something a human found that no test here could have.
 
+## If you only read five
+
+| | |
+|---|---|
+| `D-012` | Why the guardrails are regexes and not a model — the argument the whole build rests on |
+| `D-039` | The transcriber returns Devanagari and every guardrail was reading Latin. An evaluation that does not reproduce the real input format can validate a system that cannot work |
+| `D-058` | A waiver granted against a fee that was never charged. Every gate held, nothing was misstated, and the call was still a failure |
+| `D-061` | Asking for a one-time password reads as fraud in India. The human overrode me, and no scenario here could have found it |
+| `D-066` | The scorer condemned two calls the agent got right. Deterministic means repeatable, not correct |
+
 Entries are not renumbered or rewritten when a later one supersedes them;
 the superseding entry says so. A few corrections are recorded as corrections
 for the same reason. D-026 does not exist — a numbering slip, left as a gap
@@ -105,7 +115,7 @@ because entries cross-reference each other by number.
     STAGED.write_text(header + text, encoding="utf-8")
     try:
         result = subprocess.run(
-            [sys.executable, str(ROOT / "scripts/make_test_script_pdf.py"),
+            [sys.executable, str(ROOT / "scripts/make_pdf.py"),
              str(STAGED), str(OUT), "decision log"],
             capture_output=True, text=True,
         )

@@ -35,3 +35,7 @@ results/voice_ab/*.wav
 docs/manual_test_script.md
 docs/manual_test_script.pdf
 docs/call_qr.png
+
+# Lock files Excel leaves behind when a workbook is open.
+~$*
+.~lock.*

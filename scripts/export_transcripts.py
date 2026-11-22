@@ -1,4 +1,4 @@
-"""Write three call transcripts to results/transcripts/ as readable markdown.
+"""Write three call transcripts to deliverables/transcripts/ as markdown.
 
 One clean, one where the agent broke, one edge case. Selected by scenario and
 run rather than by hand, so re-running the suite and re-running this produces
@@ -15,7 +15,7 @@ import textwrap
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / "results" / "transcripts"
+OUT = ROOT / "deliverables" / "transcripts"
 
 WANTED = [
     ("01_clean.md", "v3", "E1", 1,
@@ -132,7 +132,7 @@ def main() -> None:
             continue
         (OUT / name).write_text(
             render(match[0], title, note.format(**facts)), encoding="utf-8")
-        print(f"  wrote results/transcripts/{name}")
+        print(f"  wrote deliverables/transcripts/{name}")
         written += 1
     print(f"\n  {written} of {len(WANTED)} transcripts exported")
 

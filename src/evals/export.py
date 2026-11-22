@@ -21,7 +21,7 @@ import yaml
 ROOT = Path(__file__).resolve().parent.parent.parent
 RESULTS = ROOT / "results"
 OUT = RESULTS / "eval_results.csv"
-WORKBOOK = RESULTS / "eval_results.xlsx"
+WORKBOOK = ROOT / "deliverables" / "eval_results.xlsx"
 
 #: What every identifier in the results file means. A spreadsheet of G1/M4
 #: columns and E3/X2 rows is unreadable without this, and a reader should not
@@ -253,6 +253,7 @@ def write_workbook(data: list[dict]) -> bool:
         if row[1].value in ("gate", "metric"):
             row[0].font = Font(bold=True)
 
+    WORKBOOK.parent.mkdir(parents=True, exist_ok=True)
     wb.save(WORKBOOK)
     return True
 

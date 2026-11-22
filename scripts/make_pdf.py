@@ -1,6 +1,10 @@
-"""Render the manual test script to a PDF you can hold while testing.
+"""Render a markdown document to PDF.
 
-    uv run --with reportlab python scripts/make_test_script_pdf.py
+Used for every PDF this repository ships -- the writeup, the decision log and
+the manual call script -- rather than one converter per document, because two
+converters drift and the second one is always the one with the bug.
+
+    uv run --with reportlab python scripts/make_pdf.py SOURCE.md OUT.pdf LABEL [SCALE]
 
 Markdown is the source of truth; this is a view of it. The converter handles
 only the constructs the document actually uses -- headings, tables, bullets,
@@ -35,7 +39,7 @@ from reportlab.platypus import (
 ROOT = Path(__file__).resolve().parents[1]
 
 #: Defaults, overridable on the command line:
-#:   make_test_script_pdf.py [source.md [out.pdf [footer label]]]
+#:   make_pdf.py [source.md [out.pdf [footer label]]]
 #: Generalised rather than copied when the writeup needed the same treatment.
 #: Two converters drift, and the second one is always the one with the bug.
 SOURCE = ROOT / "docs" / "manual_test_script.md"

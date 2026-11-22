@@ -135,6 +135,14 @@ For a live voice call there is nothing to add at all. Pick the account whose
 balance suits the story, press *Start call*, and play the character yourself
 — the system does not need to be told who you are pretending to be.
 
+## Deliverables
+
+Everything produced for review is in [`deliverables/`](deliverables/): the
+writeup, the scored results workbook with its legend sheet, three annotated
+call transcripts, the decision log and the identifier glossary. Each one is
+generated from a source in this repository, and `deliverables/README.md`
+gives the command that rebuilds it.
+
 ## Architecture
 
 One agent core, two front ends. The evaluation harness drives the **same**
@@ -382,12 +390,12 @@ because a voice agent is stochastic and one pass is an anecdote. A case passes
 only if **every** check passes — in collections, one breach voids an otherwise
 perfect call.
 
-Results are written to `results/eval_results.xlsx` — one row per
+Results are written to `deliverables/eval_results.xlsx` — one row per
 conversation, with a **Legend** sheet explaining every gate, metric, scenario
 id and column. The same rows are written to `results/eval_results.csv`, which
 diffs in version control where a workbook does not.
 
-`docs/code_glossary.pdf` lists every scenario, gate, metric, guardrail rule
+`deliverables/code_glossary.pdf` lists every scenario, gate, metric, guardrail rule
 and account fixture with what each one means.
 
 ### Adding a scenario

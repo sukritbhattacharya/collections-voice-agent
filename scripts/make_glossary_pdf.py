@@ -1,4 +1,4 @@
-"""Build docs/code_glossary.pdf -- what every identifier in this project means.
+"""Build deliverables/code_glossary.pdf -- what every identifier means.
 
 Generated from the live sources (scenario YAML, rules.yaml, the card headings,
 the decision log) rather than hand-written, so it cannot drift from the code.
@@ -30,7 +30,7 @@ from reportlab.platypus import (
 )
 
 ROOT = Path(__file__).resolve().parent.parent
-OUT = ROOT / "docs" / "code_glossary.pdf"
+OUT = ROOT / "deliverables" / "code_glossary.pdf"
 
 INK = colors.HexColor("#1a1a1a")
 MUTED = colors.HexColor("#5f6368")

@@ -2544,7 +2544,7 @@ accident and surfaced a failure that none of the sixteen scenarios covered.
 "show us a call where the bot broke"
 
 ## D-059 — Verification is offered up front, not only on request
-**Date:** 2026-11-21 · **Stage:** Manual testing · **Status:** Accepted
+**Date:** 2026-11-21 · **Stage:** Manual testing · **Status:** Superseded by D-061
 **Refines:** D-018, D-027
 
 **Decision:** The agent offers the one-time password early in every call —

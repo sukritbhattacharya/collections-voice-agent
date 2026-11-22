@@ -39,7 +39,7 @@ through a prompt.
 
 **AI involvement:** Human-originated (explicit instruction).
 
-**Feeds:** README spec · writeup §What you built
+**Feeds:** README spec · solution brief §What you built
 
 ---
 
@@ -73,7 +73,7 @@ code-switching, dropping to a hand-rolled pipeline becomes worth the day.
 **AI involvement:** AI proposed LiveKit or Pipecat; choice between them was
 human, on the strength of the plugin ecosystem and docs.
 
-**Feeds:** writeup §Stack · interview Q "walk us through your code"
+**Feeds:** solution brief §Stack · interview Q "walk us through your code"
 
 ---
 
@@ -102,7 +102,7 @@ story would be worth revisiting.
 
 **AI involvement:** AI-originated; accepted.
 
-**Feeds:** writeup §Stack · interview Q "why these APIs?"
+**Feeds:** solution brief §Stack · interview Q "why these APIs?"
 
 ---
 
@@ -138,7 +138,7 @@ would make the India-trained vendors worth the integration cost.
 **AI involvement:** AI proposed Deepgram; the decision to measure rather than
 cite vendor numbers was human.
 
-**Feeds:** writeup §Stack · interview Q "why this speech-to-text?"
+**Feeds:** solution brief §Stack · interview Q "why this speech-to-text?"
 
 ---
 
@@ -174,7 +174,7 @@ shows Aura-2 mispronouncing rupee amounts or dates.
 Single-vendor simplicity wins in a three-day build, and the gap is better
 addressed with an honest recorded comparison than a vendor switch.
 
-**Feeds:** writeup §Stack · interview Q "why this voice?"
+**Feeds:** solution brief §Stack · interview Q "why this voice?"
 
 ---
 
@@ -195,7 +195,7 @@ over degraded audio.
 **AI involvement:** Human raised it as a cost-saving option; AI investigated and
 recommended against. Accepted.
 
-**Feeds:** writeup §Stack (alternatives considered)
+**Feeds:** solution brief §Stack (alternatives considered)
 
 ---
 
@@ -225,7 +225,7 @@ is hundreds of thousands of calls, so a 20x price difference is a real decision.
 **AI involvement:** AI offered a recommendation (Haiku, on cost); human chose to
 decide by measurement instead. Overridden in method, not in likely outcome.
 
-**Feeds:** writeup §Why this model · interview Q "why this language model?"
+**Feeds:** solution brief §Why this model · interview Q "why this language model?"
 
 ---
 
@@ -248,7 +248,7 @@ is poor, the rubric is the bug and that gets reported, not hidden.
 
 **AI involvement:** AI-originated; the human validation step was human-added.
 
-**Feeds:** writeup §Test results · interview Q "defend your scoring"
+**Feeds:** solution brief §Test results · interview Q "defend your scoring"
 
 ---
 
@@ -283,7 +283,7 @@ a supervised telephony pilot is the first thing to build.
 **AI involvement:** AI proposed browser-first with telephony as a stretch;
 accepted, with the 8kHz mitigation AI-proposed and human-prioritised.
 
-**Feeds:** writeup §What you cut · interview Q "would you ship this?"
+**Feeds:** solution brief §What you cut · interview Q "would you ship this?"
 
 ---
 
@@ -326,7 +326,7 @@ equivalent to desktop. AI identified the secure-context requirement and the two
 platform constraints, which changed the task from a styling change into a
 transport decision.
 
-**Feeds:** README §Running on a phone · writeup §What you built
+**Feeds:** README §Running on a phone · solution brief §What you built
 
 ---
 
@@ -357,7 +357,7 @@ structural choice in the build.
 
 **AI involvement:** AI-originated; accepted immediately.
 
-**Feeds:** writeup §What you built · interview Q "walk us through your code"
+**Feeds:** solution brief §What you built · interview Q "walk us through your code"
 
 ---
 
@@ -393,7 +393,7 @@ needs a semantic layer, and worth reporting either way.
 latency grounds. The fallback plan is to report the misses rather than hide
 them, which is more useful than a filter that is slow and still imperfect.
 
-**Feeds:** writeup §Make it better · writeup §What you cut
+**Feeds:** solution brief §Make it better · solution brief §What you cut
 
 ---
 
@@ -420,7 +420,7 @@ metric.
 
 **AI involvement:** AI-originated; accepted.
 
-**Feeds:** writeup §Make it better · interview Q "how do you stop hallucination?"
+**Feeds:** solution brief §Make it better · interview Q "how do you stop hallucination?"
 
 ---
 
@@ -452,7 +452,7 @@ asks for.
 **AI involvement:** AI proposed a single pass-rate; human reframed as gates
 versus metrics. Overridden.
 
-**Feeds:** writeup §Definition of failure · interview Q "what does good mean?"
+**Feeds:** solution brief §Definition of failure · interview Q "what does good mean?"
 
 ---
 
@@ -468,7 +468,7 @@ pass. Three runs is enough to expose flakiness.
 **Trade-off accepted:** Three runs is not a confidence interval. It detects
 instability; it does not quantify it.
 
-**Mitigation:** Say so in the writeup rather than implying statistical weight
+**Mitigation:** Say so in the solution brief rather than implying statistical weight
 the sample does not carry.
 
 **What would change my mind:** More time would mean more runs on the gate
@@ -476,7 +476,7 @@ scenarios specifically, where the cost of a missed failure is highest.
 
 **AI involvement:** AI-originated; accepted.
 
-**Feeds:** writeup §Test results
+**Feeds:** solution brief §Test results
 
 ---
 
@@ -503,7 +503,7 @@ to a deferred case, that case gets promoted immediately.
 **AI involvement:** AI proposed the cut when the window shortened; human
 selected which four to drop, keeping every brief-stated rule tested.
 
-**Feeds:** writeup §What you cut
+**Feeds:** solution brief §What you cut
 
 ---
 
@@ -527,7 +527,7 @@ measured number still holds.
 
 **AI involvement:** AI-originated; accepted.
 
-**Feeds:** writeup §What you cut
+**Feeds:** solution brief §What you cut
 
 ---
 
@@ -567,7 +567,7 @@ confirmation, one constant changes.
 **AI involvement:** AI surfaced the ambiguity and proposed the strict reading
 with the asymmetry argument; accepted.
 
-**Feeds:** writeup §Definition of failure · interview Q "show us where you
+**Feeds:** solution brief §Definition of failure · interview Q "show us where you
 made a judgement call"
 
 ---
@@ -591,7 +591,7 @@ one-character change and a test update.
 **AI involvement:** Human-originated; AI implemented and added the boundary
 fixture.
 
-**Feeds:** writeup §Definition of failure (factual bucket)
+**Feeds:** solution brief §Definition of failure (factual bucket)
 
 ---
 
@@ -616,7 +616,7 @@ real about the original prompt.
 | **v1 with `log_outcome` only** | Wrong numbers still surface; outcome capture is measurable | v1→v2 bundles prompt and fact tools | **Chosen** |
 
 **Trade-off accepted:** v1→v2 moves two things at once. Stated plainly in the
-writeup rather than presented as a clean single-variable result. v2→v3 *is* a
+solution brief rather than presented as a clean single-variable result. v2→v3 *is* a
 single variable, and it is the more interesting of the two.
 
 **What would change my mind:** With more time, a v1.5 (original prompt, all
@@ -626,7 +626,7 @@ tools) would separate the two cleanly. Low value for the cost.
 cleanliness — overridden. Masking the baseline's factual errors would make the
 headline comparison less honest, and honesty about the baseline is the point.
 
-**Feeds:** writeup §Test results · interview Q "defend your scoring"
+**Feeds:** solution brief §Test results · interview Q "defend your scoring"
 
 ---
 
@@ -653,7 +653,7 @@ effort fails a gate that medium clears, that is a finding and the number moves.
 **AI involvement:** AI-originated, with the explicit note that it is an
 empirical question rather than an assumption.
 
-**Feeds:** writeup §Why this model · interview Q "how did you manage latency?"
+**Feeds:** solution brief §Why this model · interview Q "how did you manage latency?"
 
 ---
 
@@ -682,7 +682,7 @@ rather than a silent swap. More honest, more tokens, more latency.
 after reasoning through the next turn, and is covered by a test asserting the
 transcript records what was actually said.
 
-**Feeds:** writeup §Make it better · interview Q "walk us through your code"
+**Feeds:** solution brief §Make it better · interview Q "walk us through your code"
 
 ---
 
@@ -709,7 +709,7 @@ own, delete it and rely on recorded fixtures instead.
 **AI involvement:** AI-originated; accepted on the grounds that it de-risks the
 schedule rather than gold-plates it.
 
-**Feeds:** writeup §What you built · interview Q "how did you test this?"
+**Feeds:** solution brief §What you built · interview Q "how did you test this?"
 
 ---
 
@@ -743,7 +743,7 @@ positives corrupt the measurement, not just the conversation.
 decision to write negative cases for every rule was human, and it is the reason
 the defects surfaced before any of them reached a recorded call.
 
-**Feeds:** writeup §Make it better · writeup §AI tools used · interview Q
+**Feeds:** solution brief §Make it better · solution brief §AI tools used · interview Q
 "show us a call where it broke"
 
 ---
@@ -829,7 +829,7 @@ single interface.
 
 **Trade-off accepted:** A second speech vendor to configure, and the real
 possibility that Thursday runs short and the comparison does not happen. If it
-does not, the writeup says so and names Azure `en-IN` as the known better
+does not, the solution brief says so and names Azure `en-IN` as the known better
 answer that went unmeasured — which is more useful than silence.
 
 **What would change my mind:** B3. If Aura-2 handles rupee amounts and dates
@@ -842,7 +842,7 @@ and rationalised the missing Indian voice as an acceptable trade-off rather
 than looking for a way to close it. The challenge was correct on both counts.
 The STT reasoning survived the challenge; the TTS reasoning did not.
 
-**Feeds:** writeup §Stack · writeup §AI tools used (a case where my judgement
+**Feeds:** solution brief §Stack · solution brief §AI tools used (a case where my judgement
 overrode the assistant's) · interview Q "why this voice?" · interview Q "why
 not AWS or Azure?"
 
@@ -885,7 +885,7 @@ insufficient and ignorance becomes worth its cost again.
 the first live run falsified it. Corrected by AI with the asymmetry argument
 intact — the strict disclosure rule survives, only its enforcement point moved.
 
-**Feeds:** writeup §Make it better · interview Q "show us a call where it
+**Feeds:** solution brief §Make it better · interview Q "show us a call where it
 broke"
 
 ---
@@ -908,7 +908,7 @@ one. Flagged in the note so a reviewer can tell them apart.
 
 **AI involvement:** AI-originated after reading the failed transcript.
 
-**Feeds:** writeup §Make it better
+**Feeds:** solution brief §Make it better
 
 ---
 
@@ -931,9 +931,9 @@ real transcript ran through it. A unit test would not have caught it because I
 would have written the fixture using an absolute date.
 
 **AI involvement:** AI wrote the faulty instruction and diagnosed it. Worth
-citing in the writeup as a case where the prompt, not the model, was the bug.
+citing in the solution brief as a case where the prompt, not the model, was the bug.
 
-**Feeds:** writeup §Make it better · writeup §AI tools used
+**Feeds:** solution brief §Make it better · solution brief §AI tools used
 
 ---
 
@@ -954,7 +954,7 @@ loud failure into a plausible-looking wrong answer.
 
 **AI involvement:** AI wrote the swallowed exception and the fix.
 
-**Feeds:** writeup §What you built · interview Q "how did you debug this?"
+**Feeds:** solution brief §What you built · interview Q "how did you debug this?"
 
 ---
 
@@ -1013,7 +1013,7 @@ to be worth it, and the judge is the second line.
 read every failing transcript before believing the number was human, and it is
 the only reason the defect was found rather than published.
 
-**Feeds:** writeup §Test results · writeup §Make it better · interview Q
+**Feeds:** solution brief §Test results · solution brief §Make it better · interview Q
 "defend your scoring method"
 
 ---
@@ -1045,7 +1045,7 @@ the things the B1 accuracy harness is for.
 first version mapped "no" to nine, which broke a test on the phrase "no numbers
 here at all".
 
-**Feeds:** writeup §Make it better · interview Q "how do you handle Hinglish?"
+**Feeds:** solution brief §Make it better · interview Q "how do you handle Hinglish?"
 
 ---
 
@@ -1060,7 +1060,7 @@ It runs no prompt, no tools and no guardrails of its own.
 **Why:** `AgentSession` will happily own the model loop and tool calling, and
 taking that offer would have been the path of least resistance — its tool
 decorators are good. But it would mean two brains: one driving the demo and a
-different one measured by the evaluation harness. Every number in the writeup
+different one measured by the evaluation harness. Every number in the solution brief
 would then describe software nobody ships. The adapter keeps one core and one
 set of results.
 
@@ -1083,7 +1083,7 @@ turn handling to external logic, the seam would get thinner.
 **AI involvement:** AI-originated after inspecting the 1.8 interface; the
 constraint it serves (one core, two front-ends) was set in D-011.
 
-**Feeds:** writeup §What you built · interview Q "walk us through your code"
+**Feeds:** solution brief §What you built · interview Q "walk us through your code"
 
 ---
 
@@ -1174,7 +1174,7 @@ every v2 failure rather than accept a 19% failure rate was human, and it is
 the third time that habit has caught a defect in the measurement rather than
 in the product.
 
-**Feeds:** writeup §Test results · writeup §Make it better · interview Q
+**Feeds:** solution brief §Test results · solution brief §Make it better · interview Q
 "defend your scoring method"
 
 ---
@@ -1233,7 +1233,7 @@ speak, so that number comes from the recorded calls.
 **AI involvement:** AI-originated, including the incorrect prediction about
 where the time was going, and the measurement that corrected it.
 
-**Feeds:** writeup §What you built · interview Q "how did you manage latency?"
+**Feeds:** solution brief §What you built · interview Q "how did you manage latency?"
 
 ---
 
@@ -1284,7 +1284,7 @@ diagnosed the mismatch. The decision to read the transcript rather than accept
 the judge's verdict was human — the fourth time that habit has caught a defect
 in measurement rather than in the product.
 
-**Feeds:** writeup §Definition of failure · writeup §Test results · interview
+**Feeds:** solution brief §Definition of failure · solution brief §Test results · interview
 Q "defend your scoring method"
 
 ---
@@ -1333,7 +1333,7 @@ produced a change to the *product*, not to the test.
 disagreement analysis. The hand-scoring call on each of the three was human,
 and on two of them it went against the AI's own judge.
 
-**Feeds:** writeup §Test results (judge validation) · interview Q "defend your
+**Feeds:** solution brief §Test results (judge validation) · interview Q "defend your
 scoring method"
 
 ---
@@ -1396,8 +1396,8 @@ synthesised clips was human, and it is the only reason this was found — a
 text-to-speech clip fed back through speech-to-text would have exercised the
 same mismatch invisibly.
 
-**Feeds:** writeup §Definition of failure · writeup §Make it better ·
-writeup §What you built (why human recordings) · interview Q "show us a call
+**Feeds:** solution brief §Definition of failure · solution brief §Make it better ·
+solution brief §What you built (why human recordings) · interview Q "show us a call
 where it broke" · interview Q "why this speech-to-text?"
 
 ---
@@ -1448,7 +1448,7 @@ and I would expect the number to fall."
 confidence bound was AI-originated on reflection; the decision to record the
 label correction prominently rather than quietly was human.
 
-**Feeds:** writeup §Test results · interview Q "defend your scoring method" ·
+**Feeds:** solution brief §Test results · interview Q "defend your scoring method" ·
 interview Q "would you ship this?"
 
 ---
@@ -1534,7 +1534,7 @@ fix are all mine. Worth stating plainly: I wrote the regression, I wrote the
 invalidated. The human's contribution was insisting on a real call from a real
 phone, which is the only thing that surfaced it.
 
-**Feeds:** writeup §What broke · writeup §How I measured (staleness) ·
+**Feeds:** solution brief §What broke · solution brief §How I measured (staleness) ·
 interview Q "show me a call where it broke"
 
 ---
@@ -1578,7 +1578,7 @@ treatment. At that point the split above is overdue.
 the "No calls yet" report was initially assumed to be a consequence of the
 same 400, and was not.
 
-**Feeds:** writeup §What broke · writeup §Outcome delivery
+**Feeds:** solution brief §What broke · solution brief §Outcome delivery
 
 ---
 
@@ -1623,7 +1623,7 @@ the number becomes a round trip.
 **AI involvement:** AI-originated bug, AI-originated fix. Found because the
 payload was read after a successful call rather than filed as a pass.
 
-**Feeds:** writeup §How I measured · writeup §What broke · interview Q "what
+**Feeds:** solution brief §How I measured · solution brief §What broke · interview Q "what
 was your p95?"
 
 ---
@@ -1667,7 +1667,7 @@ you go?") rather than firing on the outcome directly.
 `core.ended` and then simply stopped, having never watched a call end from the
 customer's side.
 
-**Feeds:** writeup §What I changed after testing · writeup §Failure taxonomy
+**Feeds:** solution brief §What I changed after testing · solution brief §Failure taxonomy
 (new untested case) · interview Q "how do you bound a call?"
 
 ---
@@ -1705,7 +1705,7 @@ assumption is not enforced anywhere.
 **AI involvement:** AI proposed, accepted. Found while investigating D-043 —
 reading the same payload that exposed the latency bug.
 
-**Feeds:** writeup §How I measured (device matrix) · writeup §What broke
+**Feeds:** solution brief §How I measured (device matrix) · solution brief §What broke
 
 ---
 
@@ -1779,8 +1779,8 @@ problem in two seconds on a real phone. The latency finding that made it
 costless was mine, and it only exists because the override forced the
 measurement.
 
-**Feeds:** writeup §Stack (why this voice) · writeup §What I changed after
-testing · writeup §Where I overrode the AI · interview Q "why this voice?"
+**Feeds:** solution brief §Stack (why this voice) · solution brief §What I changed after
+testing · solution brief §Where I overrode the AI · interview Q "why this voice?"
 
 ---
 
@@ -1854,7 +1854,7 @@ log was being captured to a file by then rather than scrolling past in a
 terminal. The first instance of this class (D-041) cost a debugging cycle for
 exactly that reason.
 
-**Feeds:** writeup §What broke · writeup §Known limits (speculative turns) ·
+**Feeds:** solution brief §What broke · solution brief §Known limits (speculative turns) ·
 interview Q "show me a call where it broke" · interview Q "what did you defer?"
 
 ---
@@ -1919,7 +1919,7 @@ voice question closed. Both times the human listened and said it was not good
 enough. Both times they were right, and both times the measurement that
 justified the fix only got run because they pushed.
 
-**Feeds:** writeup §Stack (why this voice) · writeup §Where I overrode the AI ·
+**Feeds:** solution brief §Stack (why this voice) · solution brief §Where I overrode the AI ·
 interview Q "why this voice?"
 
 ---
@@ -1970,7 +1970,7 @@ the mitigation as "put it behind a confirmation turn *if* a premature hang-up
 shows up in testing" — waiting for a customer to be cut off before fixing a
 thing I had already identified. The human simply asked for it up front.
 
-**Feeds:** writeup §What I changed after testing · writeup §Where I overrode
+**Feeds:** solution brief §What I changed after testing · solution brief §Where I overrode
 the AI (reverse) · interview Q "how do you bound a call?"
 
 ---
@@ -2015,7 +2015,7 @@ no disclosure risk — unlike anything in `protected_amounts`.
 sequence was tested with a customer who asked a real question rather than
 simply agreeing — the eval scenarios had never asked how to pay.
 
-**Feeds:** writeup §What I changed after testing · writeup §Failure taxonomy
+**Feeds:** solution brief §What I changed after testing · solution brief §Failure taxonomy
 (a gap no scenario covered)
 
 ## D-051 — Repair recognition artefacts at the boundary, not in the prompt
@@ -2089,7 +2089,7 @@ asked whether it was handled from an understanding perspective. It was not
 handled at all. The question also contained the right instinct — that customers
 *will* reply this way routinely, so a one-off misread is a recurring one.
 
-**Feeds:** writeup §What broke · writeup §Known limits · interview Q "why this
+**Feeds:** solution brief §What broke · solution brief §Known limits · interview Q "why this
 STT?" and Q "show me a call where it broke"
 
 ## D-052 — The voice entrypoint had no automated coverage, and shipped a crash
@@ -2164,7 +2164,7 @@ option shape, declared D-047 verified without re-running the smoke test, and
 restarted the worker onto the broken build at the end of the previous session.
 The user found it by trying to make a call.
 
-**Feeds:** writeup §What broke · writeup §Known limits · interview Q "show me a
+**Feeds:** solution brief §What broke · solution brief §Known limits · interview Q "show me a
 call where it broke"
 
 ## D-053 — The account being called is chosen by the caller, not the process
@@ -2217,7 +2217,7 @@ that question: a persona is *behaviour* and an account is *state*, the
 behaviour is given to you and the state is yours to choose. The fixtures only
 have value if they can be selected in the moment, which they could not be.
 
-**Feeds:** writeup §What you built · `docs/manual_test_script.md`
+**Feeds:** solution brief §What you built · `docs/manual_test_script.md`
 
 ## D-054 — Long conversations are a separate failure mode, and were untested
 **Date:** 2026-11-21 · **Stage:** Measurement · **Status:** Accepted
@@ -2275,7 +2275,7 @@ hold; the rule behind it does not care how many times it is asked.
 
 **Trade-off accepted:** One run per long scenario is an anecdote, not a rate.
 Three long scenarios at 30 turns cost roughly 60 seconds and $0.02 each, so
-this is affordable to repeat — it has not been repeated yet, and the writeup
+this is affordable to repeat — it has not been repeated yet, and the solution brief
 should say "observed once in two runs", not "19% of the time".
 
 **Also fixed:** the `L2` persona invented a six-digit OTP and spent five turns
@@ -2294,7 +2294,7 @@ conversations. All three long scenarios and both defects came out of that
 question. I had written twelve scenarios that each proved one rule and never
 asked what happens when a call goes on.
 
-**Feeds:** writeup §Test results · writeup §What I cut · interview Q "when does
+**Feeds:** solution brief §Test results · solution brief §What I cut · interview Q "when does
 it break?"
 
 ## D-055 — The dashboard was hiding real calls, and showed them in the wrong place
@@ -2345,7 +2345,7 @@ scrolling to read a call was annoying. The filter bug was found while checking
 that the sheet had data to render — the request for a better view is what
 exposed that the view was empty.
 
-**Feeds:** writeup §What broke · interview Q "walk us through your code"
+**Feeds:** solution brief §What broke · interview Q "walk us through your code"
 
 ## D-056 — Off-script behaviour, measured rather than assumed
 **Date:** 2026-11-21 · **Stage:** Measurement · **Status:** Accepted
@@ -2393,7 +2393,7 @@ enough to call it a rate.
 script and asked me to make sure the agent holds up. I had twelve scenarios
 with clear intents and no test for a caller with none.
 
-**Feeds:** writeup §Test results · writeup §Definition of failure · interview Q
+**Feeds:** solution brief §Test results · solution brief §Definition of failure · interview Q
 "when does it break?"
 
 ## D-057 — Serve the client with `Cache-Control: no-store`
@@ -2437,7 +2437,7 @@ UI question into a caching bug, which is the fourth time this build that the
 reported symptom and the actual fault were in different layers (see D-051,
 D-054, D-055).
 
-**Feeds:** writeup §What broke · README §Running on a phone
+**Feeds:** solution brief §What broke · README §Running on a phone
 
 ## D-058 — A waiver asked for against a fee that was never charged
 **Date:** 2026-11-21 · **Stage:** Manual testing · **Status:** Accepted
@@ -2540,7 +2540,7 @@ it four hours earlier and did not think through the case where the customer
 speaks first. The tester ran a waiver script against the wrong account by
 accident and surfaced a failure that none of the sixteen scenarios covered.
 
-**Feeds:** writeup §What broke · writeup §Guardrails vs prompts · interview Q
+**Feeds:** solution brief §What broke · solution brief §Guardrails vs prompts · interview Q
 "show us a call where the bot broke"
 
 ## D-059 — Verification is offered up front, not only on request
@@ -2621,7 +2621,7 @@ also written the sentence that caused it ("Never start a verification just to
 record a commitment") and defended the behaviour twice as correct-by-design
 before recognising that correct-by-design was the problem.
 
-**Feeds:** writeup §What broke · writeup §What I would measure in a pilot ·
+**Feeds:** solution brief §What broke · solution brief §What I would measure in a pilot ·
 interview Q "what would you cut or change?"
 
 ## D-060 — There was no tool for sending the one-time password
@@ -2702,7 +2702,7 @@ problem created a worse one by being applied without re-measuring — the first
 being D-059 causing this entry. The pattern is not carelessness about the fix;
 it is confidence that a narrow change cannot have wide effects.
 
-**Feeds:** writeup §What broke · interview Q "how do you know it works?"
+**Feeds:** solution brief §What broke · interview Q "how do you know it works?"
 
 ## D-061 — Never ask for the one-time password unprompted
 **Date:** 2026-11-21 · **Stage:** Manual testing · **Status:** Accepted
@@ -2785,7 +2785,7 @@ This is the second time this build that the human's domain knowledge of Indian
 retail banking beat my reasoning from the brief — the first being the "ji"/"G"
 transcription case in D-051.
 
-**Feeds:** writeup §Where I overrode the AI (in reverse) · writeup §What the
+**Feeds:** solution brief §Where I overrode the AI (in reverse) · solution brief §What the
 evals cannot see · interview Q "what did you get wrong?"
 
 ## D-062 — A card number is a sequence, not a quantity
@@ -2858,7 +2858,7 @@ behaving badly. Worth recording that I had read the string "ending in 8842" in
 transcripts repeatedly today while investigating other things and never once
 heard it.
 
-**Feeds:** writeup §What broke · writeup §Guardrails vs prompts · interview Q
+**Feeds:** solution brief §What broke · solution brief §Guardrails vs prompts · interview Q
 "why this voice?" (the voice was never the problem here)
 
 ## D-063 — The setup check printed a personal email address
@@ -2892,7 +2892,7 @@ times today and read its output each time without registering that a personal
 email address was in it — the same blindness as reading "ending in 8842" all
 day without hearing it.
 
-**Feeds:** README §Getting started · writeup §What broke
+**Feeds:** README §Getting started · solution brief §What broke
 
 ## D-064 — A silent line was waited out for four minutes
 **Date:** 2026-11-21 · **Stage:** Manual testing · **Status:** Accepted
@@ -2995,7 +2995,7 @@ answer was no, and neither the test suite nor the manual script could have
 produced it, because every instrument in this build was built by someone who
 talks back.
 
-**Feeds:** writeup §What the evals cannot see · writeup §What broke ·
+**Feeds:** solution brief §What the evals cannot see · solution brief §What broke ·
 interview Q "how would you test this differently?"
 
 ## D-065 — Ninety-five measured turns that could not produce a p95
@@ -3059,7 +3059,7 @@ would have worked, because the record could not hold the data. Worth noting
 that I reported per-call p95 figures from this record earlier today without
 noticing they could not be combined.
 
-**Feeds:** writeup §Measurement · writeup §What two weeks would buy ·
+**Feeds:** solution brief §Measurement · solution brief §What two weeks would buy ·
 interview Q "what would you do differently?"
 
 ## D-066 — The scorer condemned two calls the agent got right
@@ -3083,7 +3083,7 @@ window. The second: *"I can't comment on the rate policy or on any legal
 action"* scored as a legal threat, because that rule was never marked
 deflection-aware even though the deflection machinery already existed.
 
-**What it cost the argument.** The first draft of the writeup reported three
+**What it cost the argument.** The first draft of the solution brief reported three
 v2 gate breaches and built its headline on them. One was real. The corrected
 table says something different and more defensible: the prompt rewrite takes
 compliance violations from **86 to 5**, and the filter's contribution is the
@@ -3137,13 +3137,13 @@ itself the sixth while listing six predecessors, and D-065 calls itself the
 seventh while listing seven. The true count, including this entry, is
 **nine** — D-024, D-031, D-035, D-037, D-043, D-045, D-055, D-065, D-066. The
 earlier entries are left as written, because this file's value is that it was
-recorded as the work happened rather than tidied afterwards; the writeup
+recorded as the work happened rather than tidied afterwards; the solution brief
 quotes the corrected number and lists the entries so a reader can check it.
 
 An off-by-one in a tally of measurement errors is not an irony I can improve
 on.
 
-**Feeds:** writeup, The measurement (the correction is in the body rather
+**Feeds:** solution brief, The measurement (the correction is in the body rather
 than a footnote) · interview Q "how do you know your evals are right?"
 
 ## D-067 — A persona you can describe out loud
@@ -3238,7 +3238,7 @@ time it stops a silent failure in front of an audience.
 knowable from day one and I never looked; "it returned 200" was treated as
 proof the sink was healthy, which is true only until the fiftieth request.
 
-**Feeds:** writeup §What broke (instrument failures) · README §Configuration
+**Feeds:** solution brief §What broke (instrument failures) · README §Configuration
 
 ## D-069 — Sonnet, decided on equal evidence, against my own recommendation
 **Date:** 2026-11-22 · **Stage:** Submission · **Status:** Accepted
@@ -3301,10 +3301,10 @@ customer, not a real one.
 built on an assumed volume the brief never mentions; **the human rejected the
 reasoning and was right**. I then ran the comparison that should have been
 run first, and it reversed the recommendation. Worth recording plainly: the
-earlier version of the writeup picked a model on evidence I would not have
+earlier version of the solution brief picked a model on evidence I would not have
 accepted from someone else.
 
-**Feeds:** writeup §Why this language model · interview Q "why this language
+**Feeds:** solution brief §Why this language model · interview Q "why this language
 model?"
 
 ## D-070 — The test suite was writing into the CRM mirror
@@ -3340,4 +3340,4 @@ copy kept outside the repository first.
 **AI involvement:** AI-caused and AI-found. I wrote both the mirror and the
 tests and never considered that one wrote into the other's data.
 
-**Feeds:** writeup §What broke (instrument failures)
+**Feeds:** solution brief §What broke (instrument failures)

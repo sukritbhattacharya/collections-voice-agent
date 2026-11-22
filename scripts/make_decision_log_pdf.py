@@ -1,6 +1,6 @@
 """Build deliverables/decision_log.pdf from docs/DECISIONS.md.
 
-The log is the raw material the writeup is assembled from: every material
+The log is the raw material the solution brief is assembled from: every material
 decision recorded when it was made, with the alternatives, the trade-off
 accepted, what would change my mind, and where the AI's suggestion was
 overridden. It is reference material, not a narrative, so the PDF adds the

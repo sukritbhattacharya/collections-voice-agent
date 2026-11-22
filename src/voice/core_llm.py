@@ -3,7 +3,7 @@
 LiveKit's `AgentSession` would happily run its own model loop and its own tool
 calling. Letting it do that would mean two brains -- one driving the demo and
 one being measured by the evaluation harness -- and every number in the
-writeup would describe the wrong system.
+the solution brief would describe the wrong system.
 
 So the pipeline keeps the jobs it is good at (voice activity detection, turn
 detection, interruption, transport) and `CollectionsAgent` keeps every

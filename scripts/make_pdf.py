@@ -1,6 +1,6 @@
 """Render a markdown document to PDF.
 
-Used for every PDF this repository ships -- the writeup, the decision log and
+Used for every PDF this repository ships -- the solution brief, the decision log and
 the manual call script -- rather than one converter per document, because two
 converters drift and the second one is always the one with the bug.
 
@@ -40,7 +40,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 #: Defaults, overridable on the command line:
 #:   make_pdf.py [source.md [out.pdf [footer label]]]
-#: Generalised rather than copied when the writeup needed the same treatment.
+#: Generalised rather than copied when the solution brief needed the same treatment.
 #: Two converters drift, and the second one is always the one with the bug.
 SOURCE = ROOT / "docs" / "manual_test_script.md"
 OUT = ROOT / "docs" / "manual_test_script.pdf"
@@ -87,7 +87,7 @@ def register_family() -> None:
         pass
 
 
-#: Type scale. The writeup is held to a page budget, so it is set a little
+#: Type scale. The solution brief is held to a page budget, so it is set a little
 #: tighter than the other documents rather than having required content cut
 #: out of it. Set from the command line; 1.0 everywhere else.
 SCALE = 1.0
@@ -105,6 +105,11 @@ def styles() -> dict[str, ParagraphStyle]:
         "title", parent=s["body"], fontName=FAMILY["bold"],
         fontSize=25 * SCALE, leading=29 * SCALE, alignment=TA_CENTER,
         spaceBefore=0, spaceAfter=11 * SCALE, textColor=INK,
+    )
+    s["kicker"] = ParagraphStyle(
+        "kicker", parent=s["body"], fontName=FAMILY["medium"],
+        fontSize=8.6 * SCALE, leading=11 * SCALE, alignment=TA_CENTER,
+        textColor=DIM, spaceAfter=6 * SCALE,
     )
     s["byline"] = ParagraphStyle(
         "byline", parent=s["body"], fontName=FAMILY["medium"],
@@ -304,11 +309,14 @@ def convert(md: str, st: dict) -> list:
                         break
                     credits.append(lines[i].strip())
                     i += 1
+                # A kicker naming the document, then the author, then the
+                # link: three lines rather than one run-on, and the eye lands
+                # on who submitted it.
                 for n, credit in enumerate(credits):
-                    story.append(Paragraph(
-                        inline(credit),
-                        st["byline"] if n == 0 else st["byline_sub"],
-                    ))
+                    style = "kicker" if n == 0 and len(credits) > 2 else (
+                        "byline" if n <= 1 else "byline_sub"
+                    )
+                    story.append(Paragraph(inline(credit), st[style]))
                 story.append(Spacer(1, 7 * SCALE))
                 story.append(HRFlowable(
                     width="100%", thickness=0.6, color=LINE,

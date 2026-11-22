@@ -138,7 +138,7 @@ balance suits the story, press *Start call*, and play the character yourself
 ## Deliverables
 
 Everything produced for review is in [`deliverables/`](deliverables/): the
-writeup, the scored results workbook with its legend sheet, three annotated
+solution brief, the scored results workbook with its legend sheet, three annotated
 call transcripts, the decision log and the identifier glossary. Each one is
 generated from a source in this repository, and `deliverables/README.md`
 gives the command that rebuilds it.

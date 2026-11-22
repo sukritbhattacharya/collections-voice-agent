@@ -2,7 +2,7 @@
 
 One row per conversation, which is the grain a reader can audit: version,
 scenario, run, outcome, every gate and metric as pass/fail, the rules it
-broke, turns, duration and cost. The summary tables in the writeup are all
+broke, turns, duration and cost. The summary tables in the solution brief are all
 derivable from this file, which is the point -- a table nobody can recompute
 is an assertion.
 

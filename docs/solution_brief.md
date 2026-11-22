@@ -1,7 +1,8 @@
 # Collections Voice Agent
 
+**Solution brief**
 **Submitted by Sukrit Bhattacharya**
-**Code and evidence:** https://github.com/sukritbhattacharya/collections-voice-agent (public)
+Code and evidence: https://github.com/sukritbhattacharya/collections-voice-agent (public)
 
 ---
 

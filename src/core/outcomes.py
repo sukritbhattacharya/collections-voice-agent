@@ -102,6 +102,8 @@ class CallOutcome(BaseModel):
     #: charged. Routing it as an ordinary request wastes a human call.
     waiver_on_nonexistent_fee: bool = False
     otp_verified: bool = False
+    #: The duration ceiling ended this call, not the conversation.
+    ended_on_ceiling: bool = False
     guardrail_hits: list[str] = Field(default_factory=list)
     duration_sec: int | None = None
     turn_count: int = 0

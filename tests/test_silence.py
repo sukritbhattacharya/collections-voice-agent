@@ -200,3 +200,53 @@ def test_the_voice_summary_exposes_the_raw_turns():
 
     t = CallTelemetry()
     assert "turns_ms" in t.summary()
+
+
+# -- the duration ceiling ---------------------------------------------------
+
+def test_the_ceiling_is_a_runaway_guard_not_the_m4_target():
+    """It was 240s because M4 asks that calls close in two to three minutes.
+    M4 describes the calls we want; the ceiling fires whatever is happening.
+    A real call paid for the conflation: eighteen turns, verified at the
+    sixteenth, cut while the customer was answering "when will you pay".
+    See D-073."""
+    from src.voice.agent import CEILING_GRACE_SEC, MAX_CALL_SEC
+
+    assert MAX_CALL_SEC >= 360, "too tight for verification plus objections"
+    assert CEILING_GRACE_SEC > 0, "an exchange in flight must be allowed to land"
+
+
+def test_the_loop_lets_an_exchange_in_flight_finish():
+    import inspect
+
+    from src.voice import agent as voice
+
+    src = inspect.getsource(voice.entrypoint)
+    assert "CEILING_GRACE_SEC" in src
+    assert "in_flight" in src
+
+
+def test_a_truncated_call_says_so_in_the_transcript():
+    """A transcript that simply stops looks like a crash."""
+    a = agent()
+    a.note_wrap_up("I need to let you go, but thank you for your time.")
+    last = a.transcript[-1]
+    assert last["role"] == "agent"
+    assert last["after_ceiling"] is True
+    assert a.state.ended_on_ceiling is True
+
+
+@pytest.mark.asyncio
+async def test_the_outcome_records_that_the_clock_ended_it():
+    a = agent()
+    a.note_wrap_up("I need to let you go.")
+    outcome = await a.finish()
+    assert outcome.ended_on_ceiling is True
+
+
+@pytest.mark.asyncio
+async def test_a_normal_call_is_not_marked_truncated():
+    a = agent(script=["Thank you for confirming."])
+    a.respond("Yes, that's me.")
+    outcome = await a.finish()
+    assert outcome.ended_on_ceiling is False

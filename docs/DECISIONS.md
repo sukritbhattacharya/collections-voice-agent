@@ -3463,3 +3463,75 @@ not consider what the screen looked like between two calls, because nothing I
 built ever made two.
 
 **Feeds:** README §Running on a phone · solution brief §What broke
+
+## D-073 — The clock cut the call at the moment it was about to succeed
+**Date:** 2026-11-22 · **Stage:** Manual testing · **Status:** Accepted
+**Refines:** D-044
+
+**Decision:** The duration ceiling goes from 240s to **420s**, an exchange
+already in flight gets a 25-second grace period to finish, and a call ended
+by the clock is recorded as such — the wrap-up line is written into the
+transcript and `ended_on_ceiling` is set on the outcome.
+
+**What happened.** A live call on `MB-9023`. The customer pushed for a waiver
+five times, refused verification twice, tried prompt injection twice, then
+relented and read the code. The agent verified her, told her plainly that no
+late fee had been charged and that the minimum due was eight hundred and
+twenty rupees, and asked when she could pay.
+
+She answered. The framework logged it:
+
+```
+WARNING  skipping user input, speech scheduling is paused
+         lk.pii.user_input: "I'll try to clear it within this week."
+```
+
+**That was the call succeeding, and it was thrown away.** Eighteen turns of
+objection handling, verification completed at the sixteenth, and the clock
+stopped the line while she was committing. No outcome was logged, so the
+post-call extractor guessed from a transcript that ends mid-question and
+recorded `DISPUTE_OR_TRANSFER` with no promise to pay.
+
+**Three separate mistakes, which is why it was so bad.**
+
+1. **The ceiling was set to the M4 target.** M4 asks that calls close in two
+   to three minutes. That is a *metric* describing the calls we want. The
+   ceiling is a *runaway guard* that fires whatever is happening. Setting one
+   to the other means every call that legitimately runs long is destroyed
+   rather than measured — and a call with verification plus five objections
+   legitimately runs long. On Sonnet the model alone takes ~4.2s a turn, so
+   eighteen turns is 76 seconds of pure model time before anyone speaks.
+2. **It cut mid-exchange.** The customer's words had been captured and
+   transcribed; the session discarded them because shutdown had begun.
+3. **The record did not say so.** The transcript simply stops, which is
+   indistinguishable from a crash, and the outcome reads as a dispute — the
+   opposite of what happened.
+
+**Four of thirty-six live calls hit the ceiling**, three of them recorded as
+`DISPUTE_OR_TRANSFER`. This was not a one-off.
+
+**Alternatives considered**
+| Option | Pro | Con | Why not |
+|---|---|---|---|
+| **Raise to 420s, grace the turn in flight, record the truncation** | Stops a runaway; stops destroying good calls; the record is honest | Longer worst case on a stuck call | **Chosen** |
+| Keep 240s and warn at T-30 | Preserves the M4 shape | The problem is the ceiling, not the warning | Rejected |
+| No ceiling at all | Never cuts a good call | A wedged session holds a LiveKit slot forever, and the free plan allows five | Rejected |
+| Make the ceiling adaptive on whether the call is converging | Best behaviour | Needs a model to judge "converging", in the one place that must not depend on one | Rejected |
+
+**Trade-off accepted:** a genuinely stuck call now occupies a line for seven
+minutes instead of four. That is the cost of not destroying the calls that
+were working, and the silence watchdog already ends an abandoned line in
+about forty seconds, which is the realistic runaway.
+
+**What would change my mind:** calls routinely reaching 420s. That would mean
+the agent is not converging, and the fix would be the conversation, not the
+clock.
+
+**AI involvement:** Human-found on a live call. I set the ceiling in D-044
+and wrote the M4 target, and chose the same number for both without noticing
+they are different kinds of thing. Every scenario in the suite is text, with
+no clock at all, so nothing automated here could have found it.
+
+**Feeds:** solution brief §What broke · solution brief §The measurement (M4
+is a metric, not the ceiling) · interview Q "show us a call where the bot
+broke"

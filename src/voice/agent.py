@@ -48,7 +48,24 @@ logger = logging.getLogger("collections.voice")
 # stays on the line as long as the customer keeps talking, which is both a cost
 # problem and a compliance one: an open-ended call is an invitation to ask the
 # agent things it has no business answering. See D-044.
-MAX_CALL_SEC = float(os.getenv("MAX_CALL_SEC", "240"))
+#: A runaway guard, not a target. This was 240s because M4 asks that calls
+#: close in two to three minutes -- but that is a metric describing the calls
+#: we want, and this is the hard stop that fires whatever is happening. The
+#: two were conflated, and a real call paid for it: eighteen turns, the
+#: customer verified at the sixteenth, and the ceiling cut the line while she
+#: was answering "when will you pay". Her reply was discarded by the
+#: framework and the outcome fell to the extractor, which recorded a dispute.
+#:
+#: A call with verification and five objections legitimately runs past three
+#: minutes, and on Sonnet the model alone takes ~4.2s a turn. Seven minutes
+#: still stops a runaway; M4 keeps measuring how many calls stay short.
+#: See D-073.
+MAX_CALL_SEC = float(os.getenv("MAX_CALL_SEC", "420"))
+
+#: Once the ceiling is reached, how long to let an exchange already under way
+#: finish. Cutting mid-answer is what made the failure above expensive: the
+#: words were spoken, heard by the transcriber, and thrown away.
+CEILING_GRACE_SEC = float(os.getenv("CEILING_GRACE_SEC", "25"))
 
 #: How long a silent line is left before the agent asks again. Eight seconds
 #: is a long pause in conversation and a short one for someone who has walked
@@ -312,8 +329,21 @@ async def entrypoint(ctx: JobContext) -> None:
     try:
         while not core.ended:
             if time.monotonic() > deadline:
+                # Do not cut across an exchange already in progress. If the
+                # agent is mid-reply, or the customer has just said something
+                # that has not been answered yet, give it a bounded moment to
+                # land -- otherwise the most valuable turn of the call is the
+                # one thrown away.
+                in_flight = speaking or quiet_since is None
+                if in_flight and time.monotonic() < deadline + CEILING_GRACE_SEC:
+                    await asyncio.sleep(0.25)
+                    continue
                 timed_out = True
-                logger.warning("call hit the %.0fs ceiling; wrapping up", MAX_CALL_SEC)
+                logger.warning(
+                    "call hit the %.0fs ceiling after %d customer turns; wrapping up",
+                    MAX_CALL_SEC,
+                    len([t for t in core.transcript if t["role"] == "customer"]),
+                )
                 break
 
             if (
@@ -345,6 +375,10 @@ async def entrypoint(ctx: JobContext) -> None:
         # line half a second longer. See D-044.
         try:
             if timed_out and not silent_close:
+                # Recorded as well as spoken. A transcript that simply stops
+                # looks like a crash; one that ends with the wrap-up line
+                # shows a reviewer the call was cut on the clock.
+                core.note_wrap_up(WRAP_UP_LINE)
                 await session.say(WRAP_UP_LINE)
             await session.drain()
         except Exception:

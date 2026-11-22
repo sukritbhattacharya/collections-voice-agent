@@ -216,6 +216,10 @@ class CallState:
     silence_prompts: int = 0
     #: The call ended because nobody answered, not because it concluded.
     ended_on_silence: bool = False
+    #: The call was cut by the duration ceiling rather than concluded.
+    #: Without this a truncated call is indistinguishable from a finished
+    #: one in the record. See D-073.
+    ended_on_ceiling: bool = False
     otp_verified: bool = False
     #: The code has been sent, so the agent should be waiting for the
     #: customer to read it back rather than offering again. See D-060.

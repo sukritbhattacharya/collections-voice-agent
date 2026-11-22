@@ -355,7 +355,7 @@ wrong. The right answer is what v3 does: capture, log, route, close.
 
 ## 6. Where AI helped, and where it was overridden
 
-Every decision in `docs/DECISIONS.md` (**71 entries**, written as they were
+Every decision in `docs/DECISIONS.md` (**72 entries**, written as they were
 made) carries an `AI involvement` tag. **Seven are tagged overridden**, and
 an eighth — the model choice, D-069 — records the human rejecting my
 reasoning outright.
@@ -529,7 +529,7 @@ re-prompted. The first real cohort will surface more.
 
 | | |
 |---|---|
-| Every decision, as it was made | `docs/DECISIONS.md` — 71 entries, also as `deliverables/decision_log.pdf` |
+| Every decision, as it was made | `docs/DECISIONS.md` — 72 entries, also as `deliverables/decision_log.pdf` |
 | Every identifier explained | `deliverables/code_glossary.pdf` |
 | Per-conversation results | `deliverables/eval_results.xlsx` — 204 rows, with a **Legend** sheet explaining every gate, metric and scenario id |
 | The same rows as plain text | `results/eval_results.csv`, which diffs in version control |

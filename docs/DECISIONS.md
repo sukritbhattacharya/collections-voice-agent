@@ -3417,3 +3417,49 @@ read that transcript for a different reason.
 
 **Feeds:** solution brief §What broke · solution brief §What I cut (one fewer
 untested case) · interview Q "show us a call where the bot broke"
+
+## D-072 — After a call, the only thing the button could do was redial
+**Date:** 2026-11-22 · **Stage:** Manual testing · **Status:** Accepted
+
+**Decision:** When a call ends, the account picker comes back and the button
+reads **"Start a new call"**. The transcript and the outcome stay on screen
+beneath it.
+
+**What was wrong.** The picker lives inside the intro panel. Starting a call
+hides that panel, and nothing ever showed it again — so once a call was over,
+the button said "Start call" and tapping it dialled **the same customer**,
+with no way to choose another short of reloading the page.
+
+On a demo whose entire point is meeting different people — and where three
+personas arrive at the start of the session — that is the wrong default in
+the most visible place in the product.
+
+**Why it was not noticed.** Every automated check places one call. The smoke
+test joins, hears audio and exits. The scenarios never touch the browser at
+all. A second consecutive call from the same device is a thing only a person
+holding a phone does, which is the third defect in this build found that way,
+after the "ji"/"G" artefact and the silent line.
+
+**Design, such as it is**
+- The picker returns rather than the page resetting: the transcript and the
+  outcome you just produced are the valuable part of the screen and should
+  not vanish because you might make another call.
+- The button is relabelled, because "Start call" beside a finished
+  transcript reads like a replay control.
+- The intro copy no longer names the button. It said "Tap **Start call**",
+  which would have contradicted the button the moment it changed — the kind
+  of small inconsistency that is invisible to write and obvious to read.
+
+**Trade-off accepted:** one tap still starts the call with whatever account
+is selected, rather than forcing a deliberate re-selection first. Making the
+tester confirm an account every time would be safer against dialling the
+wrong one and slower in the common case, which on a demo is the wrong way
+round. The selected account is named in the picker directly above the
+button.
+
+**AI involvement:** Human-found, on a handset, after the automated checks had
+all passed. I wrote both the panel-hiding and the end-of-call handler and did
+not consider what the screen looked like between two calls, because nothing I
+built ever made two.
+
+**Feeds:** README §Running on a phone · solution brief §What broke

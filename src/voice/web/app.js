@@ -25,6 +25,7 @@ const el = {
   outcomeWrap: document.getElementById("outcome-wrap"),
   outcome: document.getElementById("outcome"),
   intro: document.getElementById("intro"),
+  contextHint: document.getElementById("context-hint"),
   persona: document.getElementById("persona"),
   personaHint: document.getElementById("persona-hint"),
 };
@@ -310,6 +311,7 @@ async function startCall() {
     el.intro.hidden = true;
     el.outcomeWrap.hidden = true;
     el.transcript.replaceChildren();
+    if (el.contextHint) el.contextHint.textContent = "The agent speaks first.";
     addLine("note", "Connected. The agent will speak first.");
 
     setStatus("On call", "live");
@@ -341,7 +343,19 @@ async function endCall({ remote }) {
   setStatus(remote ? "Call ended" : "Ended", "ended");
   addLine("note", remote ? "The agent ended the call." : "You ended the call.");
 
-  el.call.textContent = "Start call";
+  // Bring the account picker back. It lives inside the intro panel, which is
+  // hidden when a call starts and used not to be shown again -- so the only
+  // thing the button could do afterwards was redial the same customer. On a
+  // demo where the whole point is meeting different people, that is the
+  // wrong default. The transcript and the outcome stay on screen underneath,
+  // because they are what you just produced. See D-072.
+  el.intro.hidden = false;
+  if (el.contextHint) {
+    el.contextHint.textContent =
+      "Pick a different account if you like, then start a new call.";
+  }
+
+  el.call.textContent = "Start a new call";
   el.call.className = "btn btn--start";
   el.call.disabled = false;
   el.call.onclick = startCall;

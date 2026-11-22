@@ -527,6 +527,7 @@ re-prompted. The first real cohort will surface more.
 | Every decision, as it was made | `docs/DECISIONS.md` — 66 entries |
 | Every identifier explained | `docs/code_glossary.pdf` |
 | Per-conversation results | `results/eval_results.csv` — 204 rows |
+| What every id in it means | `results/eval_results_legend.csv` |
 | The model head-to-head | `results/v3_claude-sonnet-5-5_runs.jsonl` |
 | Three annotated calls | `results/transcripts/` — clean, broken, caught |
 | Recognition accuracy | `results/stt_accuracy.csv` |

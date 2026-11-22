@@ -16,6 +16,7 @@ results/transcripts/*
 # them. A table nobody can recompute is an assertion, and that argument only
 # works if the file is actually in the repository.
 !results/eval_results.csv
+!results/eval_results_legend.csv
 !results/stt_accuracy.csv
 !results/v1_claude-haiku-5-5_runs.jsonl
 !results/v2_claude-haiku-5-5_runs.jsonl

@@ -414,6 +414,14 @@ UNRENDERABLE = {
     "\u2713": "yes",
     "\u2717": "no",
     "\u25a0": "",
+    # Box drawing, for ASCII diagrams in a code block. The built-in fonts
+    # have none of it, so a diagram that looks fine in a terminal arrives as
+    # a row of filled rectangles.
+    "\u2500": "-", "\u2501": "-", "\u2502": "|", "\u2503": "|",
+    "\u250c": "+", "\u2510": "+", "\u2514": "+", "\u2518": "+",
+    "\u251c": "+", "\u2524": "+", "\u252c": "+", "\u2534": "+",
+    "\u253c": "+",
+    "\u25b6": ">", "\u25c0": "<", "\u25bc": "v", "\u25b2": "^",
 }
 
 

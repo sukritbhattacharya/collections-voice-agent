@@ -67,6 +67,17 @@ fi
 say "5. QR for the handsets"
 [ -n "$URL" ] && uv run --with "qrcode[pil]" python - "$URL" <<'PY'
 import sys, qrcode
+
+url = sys.argv[1]
+
+# A file as well as the terminal block. The terminal one scans fine off
+# your own screen; a PNG is what you can enlarge, or put on a shared
+# screen without the surrounding text around it.
+big = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_M,
+                    box_size=12, border=3)
+big.add_data(url); big.make(fit=True)
+big.make_image(fill_color="black", back_color="white").save("docs/call_qr.png")
+
 q = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_M, border=2)
 q.add_data(sys.argv[1]); q.make(fit=True)
 m = q.get_matrix()
@@ -74,6 +85,7 @@ for y in range(0, len(m), 2):
     top = m[y]; bot = m[y+1] if y+1 < len(m) else [False]*len(top)
     print("  " + "".join("█" if t and b else "▀" if t else "▄" if b else " "
                          for t, b in zip(top, bot)))
-print(f"\n  {sys.argv[1]}")
+print(f"\n  {url}")
+print("  also written to docs/call_qr.png")
 PY
 printf "\n"

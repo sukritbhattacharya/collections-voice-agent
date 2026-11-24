@@ -238,6 +238,20 @@ touching the prompt or the guardrails.
 Three processes. Separate terminals:
 
 ```bash
+./scripts/preflight.sh      # all three services, then checks they work
+```
+
+That restarts the worker, the web server and the tunnel, verifies every
+credential, places a real call end to end, confirms the outcome reached the
+CRM endpoint, and prints a QR. It exists because three things expire between
+sessions and each fails differently: the Cloudflare hostname is revoked and
+the page stops loading, the free webhook endpoint fills at 50 requests and is
+then disabled — calls still succeed while the CRM pane stays empty — and a
+laptop that slept leaves processes running but unregistered.
+
+Individually:
+
+```bash
 uv run python -m src.voice.agent dev        # the voice worker
 uv run python -m src.voice.web_server       # the client + dashboard, port 8080
 ./scripts/tunnel.sh                         # HTTPS for a phone, prints a QR
